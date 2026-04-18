@@ -1,0 +1,249 @@
+import React, { useState, useEffect } from 'react';
+import { fetchGlobalTeams, fetchLeagues, deleteGlobalTeam, updateGlobalTeam } from '../../services/apiService';
+import { Users, Plus, Loader2, MapPin, Building2, Calendar, Trophy, Trash2, Pencil, Check, X } from 'lucide-react';
+
+const TeamsView = () => {
+  const [teams, setTeams] = useState([]);
+  const [leagues, setLeagues] = useState([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [newTeam, setNewTeam] = useState({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
+  const [uploading, setUploading] = useState({ badge: false, stadium: false, map: false });
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
+
+  useEffect(() => { loadData(); }, []);
+
+  const uploadFile = async (file, onSuccess) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch('/api/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: formData });
+    const data = await res.json();
+    if (data.success) onSuccess(data.url);
+  };
+
+  const handleFileUpload = async (e, type, isEdit = false) => {
+    const file = e.target.files[0]; if (!file) return;
+    setUploading(prev => ({ ...prev, [type]: true }));
+    try {
+      await uploadFile(file, (url) => {
+        const fieldMap = { badge: 'logo_url', stadium: 'stadium_image_url', map: 'location_map_url' };
+        const field = fieldMap[type];
+        if (isEdit) setEditingTeam(prev => ({ ...prev, [field]: url }));
+        else setNewTeam(prev => ({ ...prev, [field]: url }));
+      });
+    } catch { alert('Upload failed'); }
+    finally { setUploading(prev => ({ ...prev, [type]: false })); }
+  };
+
+  const loadData = async () => {
+    try {
+      const [t, l] = await Promise.all([fetchGlobalTeams(), fetchLeagues()]);
+      setTeams(t); setLeagues(l); setLoading(false);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAddTeam = async (e) => {
+    e.preventDefault();
+    if (!newTeam.name) return;
+    try {
+      await fetch('/api/global/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(newTeam)
+      });
+      setNewTeam({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
+      setShowAdd(false);
+      loadData();
+    } catch { alert('Error saving team'); }
+  };
+
+  const handleDeleteTeam = async (id) => {
+    if (!confirm('Delete this team? All associated players will also be removed.')) return;
+    try { await deleteGlobalTeam(id); loadData(); }
+    catch { alert('Error deleting team'); }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTeam) return;
+    try {
+      await updateGlobalTeam(editingTeam.id, editingTeam);
+      setEditingTeam(null);
+      loadData();
+    } catch { alert('Error updating team'); }
+  };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const teamsPerPage = 20;
+
+  // ... rest of the code is the same until filteredTeams
+  const filteredTeams = selectedLeagueId === 'all' ? teams : teams.filter(t => t.league_id === selectedLeagueId);
+  
+  const totalPages = Math.ceil(filteredTeams.length / teamsPerPage);
+  const paginatedTeams = filteredTeams.slice((currentPage - 1) * teamsPerPage, currentPage * teamsPerPage);
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}>
+      <Loader2 className="animate-spin" color="var(--brand-primary)" size={48} />
+    </div>
+  );
+
+  const inputStyle = { padding: '4px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Team Database</h1>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Manage club details, stadiums, and location data.</p>
+          </div>
+          {/* League filter */}
+          <div style={{ display: 'flex', background: 'var(--bg-panel)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)', gap: '2px' }}>
+            <button key="all" onClick={() => { setSelectedLeagueId('all'); setCurrentPage(1); }} style={{ padding: '5px 10px', borderRadius: '5px', border: 'none', background: selectedLeagueId === 'all' ? 'var(--brand-primary)' : 'transparent', color: selectedLeagueId === 'all' ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '10px', fontWeight: '700' }}>All</button>
+            {leagues.map(l => (
+              <button key={l.id} onClick={() => { setSelectedLeagueId(l.id); setCurrentPage(1); }} style={{ padding: '5px 10px', borderRadius: '5px', border: 'none', background: selectedLeagueId === l.id ? 'var(--brand-primary)' : 'transparent', color: selectedLeagueId === l.id ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '10px', fontWeight: '700' }}>{l.name}</button>
+            ))}
+          </div>
+        </div>
+        <button onClick={() => setShowAdd(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: showAdd ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: showAdd ? 'var(--text-main)' : '#fff', border: 'none', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+          {showAdd ? <X size={15} /> : <Plus size={15} />} {showAdd ? 'Cancel' : 'Add Team'}
+        </button>
+      </header>
+
+      {showAdd && (
+        <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+          <form onSubmit={handleAddTeam} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1fr 1fr 1fr auto auto 80px', gap: '12px', alignItems: 'end' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Badge</label>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                {newTeam.logo_url ? <img src={newTeam.logo_url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Trophy size={14} opacity={0.3} />}
+                <input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'badge')} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Name</label>
+              <input placeholder="Manchester City" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }} required />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>League</label>
+              <select value={newTeam.league_id} onChange={e => setNewTeam({...newTeam, league_id: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }}>
+                <option value="">— League —</option>
+                {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>City</label>
+              <input placeholder="Manchester" value={newTeam.city} onChange={e => setNewTeam({...newTeam, city: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Stadium</label>
+              <input placeholder="Etihad" value={newTeam.stadium_name} onChange={e => setNewTeam({...newTeam, stadium_name: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Stad.Img</label>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                {newTeam.stadium_image_url ? <img src={newTeam.stadium_image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Building2 size={14} opacity={0.3} />}
+                <input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'stadium')} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Map</label>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                {newTeam.location_map_url ? <img src={newTeam.location_map_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <MapPin size={14} opacity={0.3} />}
+                <input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'map')} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+              </div>
+            </div>
+            <button type="submit" style={{ padding: '10px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '12px' }}>Add</button>
+          </form>
+        </div>
+      )}
+
+      <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)' }}>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '44px' }}></th>
+              <th style={{ padding: '10px 16px', fontWeight: '800' }}>Team</th>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '140px' }}>League</th>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '120px' }}>City</th>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '160px' }}>Stadium</th>
+              <th style={{ padding: '10px 16px', fontWeight: '800', textAlign: 'right', width: '150px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedTeams.map((team, idx) => {
+              const isEditing = editingTeam?.id === team.id;
+              const leagueName = leagues.find(l => l.id === team.league_id)?.name || '—';
+              return (
+                <tr key={team.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)', height: '44px' }}>
+                  <td style={{ padding: '4px 16px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                      {(isEditing ? editingTeam.logo_url : team.logo_url)
+                        ? <img src={isEditing ? editingTeam.logo_url : team.logo_url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        : <Trophy size={12} opacity={0.3} />}
+                      {isEditing && <input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'badge', true)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />}
+                    </div>
+                  </td>
+                  <td style={{ padding: '4px 16px', fontWeight: '700' }}>
+                    {isEditing
+                      ? <input value={editingTeam.name} onChange={e => setEditingTeam({...editingTeam, name: e.target.value})} style={{ ...inputStyle, width: '100%' }} />
+                      : team.name}
+                  </td>
+                  <td style={{ padding: '4px 16px', color: 'var(--text-muted)' }}>
+                    {isEditing
+                      ? <select value={editingTeam.league_id || ''} onChange={e => setEditingTeam({...editingTeam, league_id: e.target.value})} style={inputStyle}>
+                          <option value="">— League —</option>
+                          {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                      : leagueName}
+                  </td>
+                  <td style={{ padding: '4px 16px', color: 'var(--text-muted)' }}>
+                    {isEditing
+                      ? <input value={editingTeam.city || ''} onChange={e => setEditingTeam({...editingTeam, city: e.target.value})} style={inputStyle} placeholder="City" />
+                      : <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={10} />{team.city || '—'}</span>}
+                  </td>
+                  <td style={{ padding: '4px 16px', color: 'var(--text-muted)' }}>
+                    {isEditing
+                      ? <input value={editingTeam.stadium_name || ''} onChange={e => setEditingTeam({...editingTeam, stadium_name: e.target.value})} style={inputStyle} placeholder="Stadium" />
+                      : <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Building2 size={10} />{team.stadium_name || '—'}</span>}
+                  </td>
+                  <td style={{ padding: '4px 16px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                      {isEditing ? (
+                        <>
+                          <button onClick={handleSaveEdit} title="Save" style={{ background: 'var(--brand-primary)', border: 'none', color: '#fff', cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', display: 'flex' }}><Check size={13} /></button>
+                          <button onClick={() => setEditingTeam(null)} title="Cancel" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', display: 'flex' }}><X size={13} /></button>
+                        </>
+                      ) : (
+                        <>
+                          <a href={`/admin/teams/${team.id}`} title="View Details" style={{ background: 'transparent', border: 'none', color: 'var(--brand-primary)', cursor: 'pointer', padding: '4px 8px', display: 'flex', textDecoration: 'none', fontSize: '11px', fontWeight: '700' }}>Manage</a>
+                          <button onClick={() => setEditingTeam({...team})} title="Edit" style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}><Pencil size={13} /></button>
+                          <button onClick={() => handleDeleteTeam(team.id)} title="Delete" style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', padding: '4px', display: 'flex' }}><Trash2 size={13} /></button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {filteredTeams.length === 0 && (
+          <div style={{ padding: '40px', textAlign: 'center', opacity: 0.3, fontSize: '13px' }}>No teams found for this filter.</div>
+        )}
+        
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', padding: '16px', borderTop: '1px solid var(--border-color)' }}>
+            <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px' }}>Prev</button>
+            <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', fontWeight: '700' }}>Page {currentPage} of {totalPages}</span>
+            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-main)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px' }}>Next</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TeamsView;
