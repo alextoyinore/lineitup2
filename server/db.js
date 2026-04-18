@@ -35,6 +35,7 @@ db.exec(`
     logo_url TEXT,
     stadium_name TEXT,
     city TEXT,
+    manager_name TEXT,
     foundation_year INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
@@ -46,6 +47,7 @@ db.exec(`
     number INTEGER,
     position TEXT,
     avatar_url TEXT,
+    grade INTEGER DEFAULT 0,
     is_starting INTEGER DEFAULT 0
   );
 
@@ -96,6 +98,9 @@ try {
 try {
   db.exec('ALTER TABLE global_teams ADD COLUMN foundation_year INTEGER');
 } catch (e) {}
+try {
+  db.exec('ALTER TABLE global_teams ADD COLUMN manager_name TEXT');
+} catch (e) {}
 
 try {
   db.exec('ALTER TABLE global_teams ADD COLUMN stadium_image_url TEXT');
@@ -108,6 +113,9 @@ try {
 } catch (e) {}
 try {
   db.exec('ALTER TABLE global_players ADD COLUMN is_starting INTEGER DEFAULT 0');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE global_players ADD COLUMN grade INTEGER DEFAULT 0');
 } catch (e) {}
 
 console.log('--- Database initialized (UTF-8) at', dbPath);

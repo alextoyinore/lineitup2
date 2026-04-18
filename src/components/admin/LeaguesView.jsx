@@ -108,6 +108,7 @@ const LeaguesView = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)' }}>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '40px' }}>S/N</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', width: '50px' }}>Logo</th>
               <th style={{ padding: '10px 16px', fontWeight: '800' }}>Name</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', width: '160px' }}>Country</th>
@@ -119,6 +120,7 @@ const LeaguesView = () => {
               const isEditing = editingLeague?.id === league.id;
               return (
                 <tr key={league.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)', height: '44px' }}>
+                  <td style={{ padding: '4px 16px', fontWeight: '700', color: 'var(--text-muted)' }}>{idx + 1}</td>
                   <td style={{ padding: '4px 16px' }}>
                     <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
                       {(isEditing ? editingLeague.logo_url : league.logo_url)

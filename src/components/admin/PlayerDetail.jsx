@@ -55,6 +55,7 @@ const PlayerDetail = () => {
         number: Number(player.number),
         position: player.position,
         avatar_url: player.avatar_url,
+        grade: Number(player.grade || 0),
         is_starting: player.is_starting
       });
       navigate(`/admin/teams/${player.team_id}`);
@@ -110,19 +111,26 @@ const PlayerDetail = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '11px', fontWeight: '800', opacity: 0.7, textTransform: 'uppercase' }}>Position</label>
-              <select value={player.position} onChange={e => setPlayer({...player, position: e.target.value})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px', outline: 'none' }}>
-                <option value="">Select Position</option>
-                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <input placeholder="LW, ST" value={player.position || ''} onChange={e => setPlayer({...player, position: e.target.value.toUpperCase()})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px', textTransform: 'uppercase' }} />
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '11px', fontWeight: '800', opacity: 0.7, textTransform: 'uppercase' }}>Role in Squad</label>
-            <select value={player.is_starting} onChange={e => setPlayer({...player, is_starting: Number(e.target.value)})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px', outline: 'none' }}>
-              <option value={1}>Starting 11</option>
-              <option value={0}>Substitute / Bench</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '800', opacity: 0.7, textTransform: 'uppercase' }}>Overall Grade (OVR)</label>
+              <input type="number" min="1" max="99" value={player.grade || ''} onChange={e => setPlayer({...player, grade: e.target.value})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px' }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '800', opacity: 0.7, textTransform: 'uppercase' }}>Role in Squad</label>
+              <select value={player.is_starting} onChange={e => setPlayer({...player, is_starting: Number(e.target.value)})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px', outline: 'none' }}>
+                <option value={1}>Starting 11</option>
+                <option value={0}>Substitute / Bench</option>
+                <option value={-1}>Injured</option>
+                <option value={-2}>Loaned Out</option>
+                <option value={-3}>Reserved</option>
+              </select>
+            </div>
           </div>
 
           <button type="submit" disabled={saving || uploading} style={{ marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '14px', cursor: (saving || uploading) ? 'not-allowed' : 'pointer' }}>

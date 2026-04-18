@@ -209,10 +209,10 @@ app.get('/api/global/teams', (req, res) => {
 
 app.post('/api/global/teams', authenticateToken, isAdmin, (req, res) => {
   try {
-    const { name, league_id, logo_url, stadium_name, city, foundation_year, stadium_image_url, location_map_url } = req.body;
+    const { name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url } = req.body;
     const id = uuidv4();
-    db.prepare(`INSERT INTO global_teams (id, name, league_id, logo_url, stadium_name, city, foundation_year, stadium_image_url, location_map_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, name, league_id, logo_url, stadium_name, city, foundation_year, stadium_image_url, location_map_url);
+    db.prepare(`INSERT INTO global_teams (id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url);
     res.json({ success: true, id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -221,9 +221,9 @@ app.post('/api/global/teams', authenticateToken, isAdmin, (req, res) => {
 
 app.put('/api/global/teams/:id', authenticateToken, isAdmin, (req, res) => {
   try {
-    const { name, league_id, logo_url, stadium_name, city, foundation_year, stadium_image_url, location_map_url } = req.body;
-    db.prepare(`UPDATE global_teams SET name=?, league_id=?, logo_url=?, stadium_name=?, city=?, foundation_year=?, stadium_image_url=?, location_map_url=? WHERE id=?`)
-      .run(name, league_id, logo_url, stadium_name, city, foundation_year, stadium_image_url, location_map_url, req.params.id);
+    const { name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url } = req.body;
+    db.prepare(`UPDATE global_teams SET name=?, league_id=?, logo_url=?, stadium_name=?, city=?, manager_name=?, foundation_year=?, stadium_image_url=?, location_map_url=? WHERE id=?`)
+      .run(name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -261,10 +261,10 @@ app.get('/api/global/players/:id', (req, res) => {
 
 app.post('/api/global/players', authenticateToken, isAdmin, (req, res) => {
   try {
-    const { team_id, name, number, position, avatar_url, is_starting } = req.body;
+    const { team_id, name, number, position, avatar_url, grade, is_starting } = req.body;
     const id = uuidv4();
-    db.prepare('INSERT INTO global_players (id, team_id, name, number, position, avatar_url, is_starting) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(id, team_id, name, number, position, avatar_url, is_starting ? 1 : 0);
+    db.prepare('INSERT INTO global_players (id, team_id, name, number, position, avatar_url, grade, is_starting) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, team_id, name, number, position, avatar_url, Number(grade || 0), Number(is_starting));
     res.json({ success: true, id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -273,9 +273,9 @@ app.post('/api/global/players', authenticateToken, isAdmin, (req, res) => {
 
 app.put('/api/global/players/:id', authenticateToken, isAdmin, (req, res) => {
   try {
-    const { name, number, position, avatar_url, is_starting } = req.body;
-    db.prepare('UPDATE global_players SET name=?, number=?, position=?, avatar_url=?, is_starting=? WHERE id=?')
-      .run(name, number, position, avatar_url, is_starting ? 1 : 0, req.params.id);
+    const { name, number, position, avatar_url, grade, is_starting } = req.body;
+    db.prepare('UPDATE global_players SET name=?, number=?, position=?, avatar_url=?, grade=?, is_starting=? WHERE id=?')
+      .run(name, number, position, avatar_url, Number(grade || 0), Number(is_starting), req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -38,7 +38,8 @@ export const TacticsProvider = ({ children }) => {
   const [savedTeams, setSavedTeams] = useState([]);
   const [recordings, setRecordings] = useState([]);
   const [globalTeams, setGlobalTeams] = useState([]);
-  const [currentTeamId, setCurrentTeamId] = useState(null);
+  const [homeTeamId, setHomeTeamId] = useState(null);
+  const [awayTeamId, setAwayTeamId] = useState(null);
 
   // --- Tools State ---
   const [currentTool, setCurrentTool] = useState('pointer');
@@ -50,6 +51,8 @@ export const TacticsProvider = ({ children }) => {
     let pAway = isDualTeamMode ? generatePlayers(awayFormation, false, uiConfig.showSubsArea) : [];
     setPlayers([...pHome, ...pAway]);
     setDrawings([]);
+    setHomeTeamId(null);
+    setAwayTeamId(null);
   }, [homeFormation, awayFormation, isDualTeamMode, uiConfig.showSubsArea]);
 
   // React to dual team mode toggle
@@ -68,21 +71,61 @@ export const TacticsProvider = ({ children }) => {
     });
   }, [isDualTeamMode]); // eslint-disable-line
 
-  // React to substitute bench toggle — add/remove bench subs without wiping positions
+  // React to substitute bench toggle — just filter existing bench players out if hidden
+  // We no longer re-generate them here because it overwrites custom rosters.
+  useEffect(() => {
+    if (!uiConfig.showSubsArea) {
+      setPlayers(prev => prev.filter(p => p.relativeY <= 90));
+    } else {
+      // If we are showing them, but they are missing, we can add generic ones as a fallback
+      setPlayers(prev => {
+        const hasHomeSubs = prev.some(p => p.team === 'home' && p.relativeY > 90);
+        if (!hasHomeSubs) {
+          const homeSubs = generatePlayers(homeFormation, true, true).filter(p => p.relativeY > 90);
+          const awaySubs = isDualTeamMode 
+            ? generatePlayers(awayFormation, false, true).filter(p => p.relativeY > 90)
+            : [];
+          return [...prev, ...homeSubs, ...awaySubs];
+        }
+        return prev;
+      });
+    }
+  }, [uiConfig.showSubsArea]); // eslint-disable-line
+  
+  // React to home formation change
   useEffect(() => {
     setPlayers(prev => {
-      const onPitch = prev.filter(p => p.relativeY <= 90);
-      if (uiConfig.showSubsArea) {
-        const homeSubs = generatePlayers(homeFormation, true, true).filter(p => p.relativeY > 90);
-        const awaySubs = isDualTeamMode
-          ? generatePlayers(awayFormation, false, true).filter(p => p.relativeY > 90)
-          : [];
-        return [...onPitch, ...homeSubs, ...awaySubs];
-      } else {
-        return onPitch;
-      }
+      const homePitchPlayers = prev.filter(p => p.team === 'home' && p.relativeY <= 90);
+      const otherPlayers = prev.filter(p => !(p.team === 'home' && p.relativeY <= 90));
+      const newFormationPos = generatePlayers(homeFormation, true, false);
+      
+      const updatedHome = homePitchPlayers.map((p, i) => {
+        if (newFormationPos[i]) {
+          return { ...p, relativeX: newFormationPos[i].relativeX, relativeY: newFormationPos[i].relativeY };
+        }
+        return p;
+      });
+      return [...otherPlayers, ...updatedHome];
     });
-  }, [uiConfig.showSubsArea]); // eslint-disable-line
+  }, [homeFormation]); // eslint-disable-line
+
+  // React to away formation change
+  useEffect(() => {
+    if (!isDualTeamMode) return;
+    setPlayers(prev => {
+      const awayPitchPlayers = prev.filter(p => p.team === 'away' && p.relativeY <= 90);
+      const otherPlayers = prev.filter(p => !(p.team === 'away' && p.relativeY <= 90));
+      const newFormationPos = generatePlayers(awayFormation, false, false);
+      
+      const updatedAway = awayPitchPlayers.map((p, i) => {
+        if (newFormationPos[i]) {
+          return { ...p, relativeX: newFormationPos[i].relativeX, relativeY: newFormationPos[i].relativeY };
+        }
+        return p;
+      });
+      return [...otherPlayers, ...updatedAway];
+    });
+  }, [awayFormation, isDualTeamMode]); // eslint-disable-line
 
   const updatePlayer = useCallback((id, updates) => {
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
@@ -123,7 +166,8 @@ export const TacticsProvider = ({ children }) => {
     savedTeams, setSavedTeams,
     recordings, setRecordings,
     globalTeams, setGlobalTeams,
-    currentTeamId, setCurrentTeamId,
+    homeTeamId, setHomeTeamId,
+    awayTeamId, setAwayTeamId,
     currentTool, setCurrentTool,
     inkColor, setInkColor,
     resetPitch,

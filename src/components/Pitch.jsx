@@ -7,8 +7,26 @@ const PATH_WIDTH = 24;
 const PATH_HEIGHT = 24;
 
 const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColors, onNameClick, onNumberClick, onPositionClick, ui, currentTool, onPlayerDragEnd, isVertical }) => {
+  const groupRef = useRef(null);
+  const isFirstRender = useRef(true);
+
   const absoluteX = isVertical ? (player.relativeY / 100) * width : (player.relativeX / 100) * width;
   const absoluteY = isVertical ? (player.relativeX / 100) * height : (player.relativeY / 100) * height;
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (groupRef.current) {
+      groupRef.current.to({
+        x: absoluteX,
+        y: absoluteY,
+        duration: 0.5,
+        easing: Konva.Easings.EaseInOut
+      });
+    }
+  }, [absoluteX, absoluteY]);
 
   const isBench = player.relativeY > 90;
   const baseScale = Math.min(width, height) * 0.003 * ui.jerseyScaleMult;
@@ -41,8 +59,9 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
 
   return (
     <Group
-      x={absoluteX}
-      y={absoluteY}
+      ref={groupRef}
+      x={isFirstRender.current ? absoluteX : groupRef.current?.x() || absoluteX}
+      y={isFirstRender.current ? absoluteY : groupRef.current?.y() || absoluteY}
       draggable={isInteractive}
       listening={isInteractive}
       onDragStart={handleDragStart}
@@ -61,7 +80,7 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
         offsetY={PATH_HEIGHT / 2}
       />
       <Text
-        text={player.positionStr}
+        text={player.positionStr || ''}
         fill={ui.jerseyNumberColor}
         opacity={ui.positionIdOpacity}
         fontSize={6 * playerScale}
@@ -75,11 +94,11 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
         shadowBlur={ui.textHasShadow ? 2 : 0}
         onDblClick={(e) => onPositionClick(e, player)}
         onDblTap={(e) => onPositionClick(e, player)}
-        onMouseEnter={(e) => { if(isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; }}}
+        onMouseEnter={(e) => { if (isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; } }}
         onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
       />
       <Text
-        text={player.number.toString()}
+        text={(player.number ?? '').toString()}
         fill={ui.jerseyNumberColor}
         opacity={ui.jerseyNumberOpacity}
         fontSize={ui.jerseyNumberFontSize * playerScale}
@@ -95,11 +114,11 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
         shadowBlur={ui.textHasShadow ? 2 : 0}
         onDblClick={(e) => onNumberClick(e, player)}
         onDblTap={(e) => onNumberClick(e, player)}
-        onMouseEnter={(e) => { if(isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; }}}
+        onMouseEnter={(e) => { if (isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; } }}
         onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
       />
       <Text
-        text={player.name}
+        text={player.name || ''}
         y={(PATH_HEIGHT / 2) * playerScale + 5}
         fill="#FFFFFF"
         fontSize={ui.playerNameFontSize * playerScale}
@@ -112,9 +131,46 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
         shadowBlur={ui.textHasShadow ? 3 : 0}
         onDblClick={(e) => onNameClick(e, player)}
         onDblTap={(e) => onNameClick(e, player)}
-        onMouseEnter={(e) => { if(isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; }}}
+        onMouseEnter={(e) => { if (isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; } }}
         onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
       />
+
+      {/* OVR Badge */}
+      {player.grade > 0 && (
+        <Group x={12 * playerScale} y={-12 * playerScale}>
+          <Circle
+            radius={6 * playerScale}
+            fill="#1e293b"
+            stroke="#facc15"
+            strokeWidth={0.5}
+            shadowBlur={2}
+          />
+          <Text
+            text={player.grade.toString()}
+            fill="#facc15"
+            fontSize={5 * playerScale}
+            fontFamily="Inter"
+            fontStyle="bold"
+            align="center"
+            verticalAlign="middle"
+            width={12 * playerScale}
+            height={12 * playerScale}
+            offsetX={6 * playerScale}
+            offsetY={6 * playerScale}
+          />
+        </Group>
+      )}
+
+      {/* Versatility Indicator (Dot if player has 2+ positions) */}
+      {player.positionStr?.includes(',') && (
+        <Circle
+          x={-12 * playerScale}
+          y={-12 * playerScale}
+          radius={2 * playerScale}
+          fill="#10b981"
+          shadowBlur={2}
+        />
+      )}
     </Group>
   );
 };
@@ -131,11 +187,11 @@ const CameraFeed = ({ stream, width, height }) => {
       videoRef.current = video;
 
       const layer = imageRef.current?.getLayer();
-      
+
       const anim = new Konva.Animation(() => {
         // No logic needed, just forcing redraw for the video content
       }, layer);
-      
+
       anim.start();
       return () => {
         anim.stop();
@@ -213,16 +269,16 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
   const isVertical = width < height;
 
   // Use a smaller pitch height if substitute area is enabled to leave room at the bottom
-  const pitchHeightModifier = ui.showSubsArea ? 0.90 : 1; 
+  const pitchHeightModifier = ui.showSubsArea ? 0.90 : 1;
   const pHeight = height * pitchHeightModifier;
 
-  const pitchBgColors = [ui.pitchColor1, ui.pitchColor2]; 
+  const pitchBgColors = [ui.pitchColor1, ui.pitchColor2];
   const lineColor = ui.pitchLineColor;
   const strokeWidth = ui.lineThickness;
   const lineOpacity = 0.8;
   const midX = width / 2;
   const midY = isVertical ? height / 2 : pHeight / 2;
-  
+
   const pWidth = isVertical ? width : width; // Placeholder, for clarity
   const pitchVisualHeight = isVertical ? height : pHeight;
 
@@ -304,7 +360,7 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
         }
       }
     }
-    
+
     if (!swapped) {
       updatePlayer(draggedPlayer.id, { relativeX: newRelX, relativeY: newRelY });
     }
@@ -333,11 +389,11 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
     }
 
     isDrawingRef.current = true;
-    setDrawings([...drawings, { 
-      tool: currentTool, 
-      color: inkColor, 
-      hasFill: ui.zoneHasFill, 
-      points: [relX, relY, relX, relY] 
+    setDrawings([...drawings, {
+      tool: currentTool,
+      color: inkColor,
+      hasFill: ui.zoneHasFill,
+      points: [relX, relY, relX, relY]
     }]);
   };
 
@@ -347,17 +403,17 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
       setGhostPoint(null);
       return;
     }
-    
+
     // Flatten points for the drawings array
     const flatPoints = activePolyPoints.reduce((acc, p) => [...acc, p.x, p.y], []);
-    
+
     setDrawings([...drawings, {
       tool: 'polygon',
       color: inkColor,
       hasFill: ui.zoneHasFill,
       points: flatPoints
     }]);
-    
+
     setActivePolyPoints([]);
     setGhostPoint(null);
   };
@@ -377,7 +433,7 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
     }
 
     if (currentTool === 'pointer' || !isDrawingRef.current) return;
-    
+
     setDrawings(prevDrawings => {
       let lastLine = { ...prevDrawings[prevDrawings.length - 1] };
       if (lastLine.tool === 'circle' || lastLine.tool === 'rect') {
@@ -391,7 +447,7 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
   };
 
   const handleStageMouseUp = () => { isDrawingRef.current = false; };
-  
+
   const handleStageDblClick = () => {
     if (currentTool === 'polygon' && activePolyPoints.length >= 3) {
       finishPolygon();
@@ -400,14 +456,14 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
 
   return (
     <div className="pitch-boundary" style={{ borderRadius: '0', border: 'none', cursor: currentTool !== 'pointer' ? 'crosshair' : 'default' }} ref={containerRef}>
-      
+
       {editingNode && (
         <input
           autoFocus
           value={editingNode.value}
-          onChange={(e) => setEditingNode({...editingNode, value: e.target.value})}
+          onChange={(e) => setEditingNode({ ...editingNode, value: e.target.value })}
           onBlur={(e) => saveEdit(e.target.value)}
-          onKeyDown={(e) => { if(e.key === 'Enter') saveEdit(e.target.value); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(e.target.value); }}
           style={{ position: 'absolute', top: editingNode.y + 'px', left: editingNode.x + 'px', transform: 'translate(-50%, -50%)', background: 'white', border: '2px solid #000', borderRadius: '4px', padding: '2px 4px', fontSize: '14px', fontFamily: 'Inter', fontWeight: 'bold', textAlign: 'center', color: '#000', width: '80px', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
         />
       )}
@@ -415,19 +471,19 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
       <Stage width={width} height={height} onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} onDblClick={handleStageDblClick} onTouchStart={handleStageMouseDown} onTouchMove={handleStageMouseMove} onTouchEnd={handleStageMouseUp}>
         <Layer ref={layerRef}>
           {stripes}
-          
+
           {/* Main Pitch Bounds */}
-          <Rect x={10} y={10} width={width-20} height={pitchVisualHeight-20} stroke={lineColor} strokeWidth={strokeWidth} opacity={lineOpacity} />
-          
+          <Rect x={10} y={10} width={width - 20} height={pitchVisualHeight - 20} stroke={lineColor} strokeWidth={strokeWidth} opacity={lineOpacity} />
+
           {/* Center Line & Circles */}
           {isVertical ? (
             <Line points={[10, midY, width - 10, midY]} stroke={lineColor} strokeWidth={strokeWidth} opacity={lineOpacity} />
           ) : (
-            <Line points={[midX, 10, midX, pHeight-10]} stroke={lineColor} strokeWidth={strokeWidth} opacity={lineOpacity} />
+            <Line points={[midX, 10, midX, pHeight - 10]} stroke={lineColor} strokeWidth={strokeWidth} opacity={lineOpacity} />
           )}
-          
+
           <Circle x={midX} y={midY} radius={centerCircleRad} stroke={lineColor} strokeWidth={strokeWidth} opacity={lineOpacity} />
-          <Circle x={midX} y={midY} radius={strokeWidth*1.5} fill={lineColor} opacity={lineOpacity} />
+          <Circle x={midX} y={midY} radius={strokeWidth * 1.5} fill={lineColor} opacity={lineOpacity} />
 
           {/* Penalty Areas */}
           {isVertical ? (
@@ -461,7 +517,7 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
             <Group x={0} y={pitchVisualHeight}>
               <Rect width={width} height={height - pitchVisualHeight} fill="#111827" />
               <Line points={[0, 0, width, 0]} stroke="#FFFFFF" strokeWidth={4} opacity={0.6} dash={[10, 10]} />
-              <Text x={15} y={15} text="SUBSTITUTES BENCH" fill="#FFF" opacity={0.3} fontSize={16} fontFamily="Outfit" fontStyle="bold" />
+              <Text x={15} y={15} text="BENCH" fill="#FFF" opacity={0.3} fontSize={16} fontFamily="Outfit" fontStyle="bold" />
             </Group>
           )}
 
@@ -469,16 +525,16 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
           {drawings && drawings.map((line, i) => {
             const isFilled = line.hasFill;
             const dynamicFill = isFilled ? hexToRgba(line.color, 0.35) : 'transparent';
-            
+
             // Map relative points back to absolute pixels
             const absPoints = line.points.map((p, idx) => (idx % 2 === 0 ? (p / 100 * width) : (p / 100 * height)));
 
             if (line.tool === 'circle') {
-               const radius = Math.sqrt(Math.pow(absPoints[2] - absPoints[0], 2) + Math.pow(absPoints[3] - absPoints[1], 2));
-               return <Circle key={i} x={absPoints[0]} y={absPoints[1]} radius={radius} stroke={line.color} strokeWidth={ui.lineThickness} fill={dynamicFill} />;
+              const radius = Math.sqrt(Math.pow(absPoints[2] - absPoints[0], 2) + Math.pow(absPoints[3] - absPoints[1], 2));
+              return <Circle key={i} x={absPoints[0]} y={absPoints[1]} radius={radius} stroke={line.color} strokeWidth={ui.lineThickness} fill={dynamicFill} />;
             }
             if (line.tool === 'rect') {
-               return <Rect key={i} x={Math.min(absPoints[0], absPoints[2])} y={Math.min(absPoints[1], absPoints[3])} width={Math.abs(absPoints[2] - absPoints[0])} height={Math.abs(absPoints[3] - absPoints[1])} stroke={line.color} strokeWidth={ui.lineThickness} fill={dynamicFill} />;
+              return <Rect key={i} x={Math.min(absPoints[0], absPoints[2])} y={Math.min(absPoints[1], absPoints[3])} width={Math.abs(absPoints[2] - absPoints[0])} height={Math.abs(absPoints[3] - absPoints[1])} stroke={line.color} strokeWidth={ui.lineThickness} fill={dynamicFill} />;
             }
             if (line.tool === 'dashed_arrow') {
               return <Arrow key={i} points={absPoints} stroke={line.color} strokeWidth={ui.lineThickness + 2} dash={[15, 10]} fill={line.color} tension={0.5} lineCap="round" lineJoin="round" pointerLength={15} pointerWidth={15} />;
@@ -495,21 +551,21 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
           {/* Active Polygon Preview */}
           {activePolyPoints.length > 0 && (
             <Group>
-              <Line 
+              <Line
                 points={activePolyPoints.reduce((acc, p) => [...acc, p.x / 100 * width, p.y / 100 * height], ghostPoint ? [ghostPoint.x / 100 * width, ghostPoint.y / 100 * height] : [])}
                 stroke={inkColor}
                 strokeWidth={ui.lineThickness}
                 dash={[10, 5]}
               />
               {activePolyPoints.map((p, idx) => (
-                <Circle 
-                  key={idx} 
-                  x={p.x / 100 * width} 
-                  y={p.y / 100 * height} 
-                  radius={idx === 0 ? 6 : 4} 
-                  fill={idx === 0 ? "#fff" : inkColor} 
-                  stroke={inkColor} 
-                  strokeWidth={2} 
+                <Circle
+                  key={idx}
+                  x={p.x / 100 * width}
+                  y={p.y / 100 * height}
+                  radius={idx === 0 ? 6 : 4}
+                  fill={idx === 0 ? "#fff" : inkColor}
+                  stroke={inkColor}
+                  strokeWidth={2}
                 />
               ))}
             </Group>

@@ -24,15 +24,6 @@ const AdminLayout = () => {
         {/* SIDEBAR */}
         <aside style={{ width: '280px', background: 'var(--bg-panel)', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
-              <div style={{ width: '36px', height: '36px', background: 'var(--brand-primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldAlert size={20} color="#fff" />
-              </div>
-              <div>
-                <div style={{ fontSize: '16px', fontWeight: '800', lineHeight: 1.2 }}>LINEITUP</div>
-                <div style={{ fontSize: '10px', fontWeight: '700', opacity: 0.5, letterSpacing: '1px' }}>ADMIN CONSOLE</div>
-              </div>
-            </div>
 
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {navItems.map((item) => {

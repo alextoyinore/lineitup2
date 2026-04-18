@@ -51,7 +51,10 @@ const Navbar = () => {
           <div style={{ width: '32px', height: '32px', background: 'var(--brand-primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(29, 158, 74, 0.3)' }}>
             <ShieldAlert size={18} color="#fff" />
           </div>
-          <span style={{ fontWeight: '800', letterSpacing: '-0.5px', fontSize: '18px' }}>LINEITUP</span>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontWeight: '800', letterSpacing: '-0.5px', fontSize: '18px', lineHeight: 1 }}>LINEITUP</span>
+            {isAdminPath && <span style={{ fontSize: '9px', fontWeight: '800', opacity: 0.7, letterSpacing: '0.5px', marginTop: '3px', color: 'var(--brand-primary)' }}>ADMIN CONSOLE</span>}
+          </div>
         </Link>
 
         <div style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />

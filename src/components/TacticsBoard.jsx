@@ -15,7 +15,7 @@ import { useTactics } from '../context/TacticsContext';
 function TacticsBoard() {
   const { user, loading: authLoading, logout } = useAuth();
   const {
-    uiConfig, setUiConfig,
+    uiConfig, setUiConfig, updateUiConfig,
     homeFormation, setHomeFormation,
     awayFormation, setAwayFormation,
     isDualTeamMode, setIsDualTeamMode,
@@ -26,7 +26,8 @@ function TacticsBoard() {
     currentTool, setCurrentTool,
     inkColor, setInkColor,
     resetPitch, reloadData,
-    currentTeamId, setCurrentTeamId
+    homeTeamId, setHomeTeamId,
+    awayTeamId, setAwayTeamId
   } = useTactics();
 
   const pitchRef = useRef(null);
@@ -49,45 +50,71 @@ function TacticsBoard() {
     try {
       const globalPlayers = await fetchGlobalPlayers(teamId);
       
-      let availablePlayers = [...globalPlayers];
-      availablePlayers.sort((a, b) => (b.is_starting ? 1 : 0) - (a.is_starting ? 1 : 0));
+      let availablePlayers = globalPlayers.filter(gp => gp.is_starting >= 0);
+      
+      const starters = availablePlayers.filter(gp => Number(gp.is_starting) === 1).sort((a, b) => (Number(b.grade) || 0) - (Number(a.grade) || 0));
+      const benchPlayers = availablePlayers.filter(gp => Number(gp.is_starting) === 0).sort((a, b) => (Number(b.grade) || 0) - (Number(a.grade) || 0));
+
+      console.log(`Fetching team ${teamId}: Found ${starters.length} starters and ${benchPlayers.length} bench players.`);
 
       setPlayers(prev => {
-        const targetPitchPlayers = prev.filter(p => p.team === forTeam && p.relativeY <= 90);
-        const otherPlayers = prev.filter(p => p.team !== forTeam);
+        // 1. Identify existing pitch nodes for this team
+        const targetPitchNodes = prev.filter(p => p.team === forTeam && p.relativeY <= 90);
+        
+        // 2. Remove ALL existing players for this team (clears both old pitch nodes and old bench nodes)
+        const otherTeamsPlayers = prev.filter(p => p.team !== forTeam);
 
-        const updatedPitch = targetPitchPlayers.map((p, i) => {
-          let matchIndex = availablePlayers.findIndex(gp => gp.is_starting && (gp.position === p.positionStr || gp.position === p.name));
-          if (matchIndex === -1) matchIndex = availablePlayers.findIndex(gp => gp.is_starting);
-          if (matchIndex === -1) matchIndex = availablePlayers.findIndex(gp => gp.position === p.positionStr || gp.position === p.name);
-          if (matchIndex === -1 && availablePlayers.length > 0) matchIndex = 0;
+        // 3. Map starters to the pitch nodes
+        const updatedPitch = targetPitchNodes.map((p) => {
+          // Try to match by position string
+          let matchIndex = starters.findIndex(gp => {
+            if (!gp.position) return false;
+            const targetPos = (p.positionStr || p.name).toUpperCase();
+            const positions = gp.position.split(',').map(s => s.trim().toUpperCase());
+            return positions.includes(targetPos);
+          });
+          
+          // Fallback: match by any remaining starter
+          if (matchIndex === -1 && starters.length > 0) matchIndex = 0;
 
           if (matchIndex !== -1) {
-            const match = availablePlayers.splice(matchIndex, 1)[0];
-            return { ...p, name: match.name, number: match.number };
+            const match = starters.splice(matchIndex, 1)[0];
+            return { 
+              ...p, 
+              ...match,
+              id: p.id, // KEEP the pitch node's tactical ID
+              name: match.name,
+              number: match.number,
+              positionStr: match.position || p.positionStr,
+              avatar_url: match.avatar_url,
+              grade: match.grade
+            };
           }
           return p;
         });
 
-        const updatedBench = availablePlayers.map((res, i) => {
+        // 4. Any leftover starters + all designated bench players go to the bench
+        const allSubs = [...starters, ...benchPlayers];
+        const updatedBench = allSubs.map((res, i) => {
+          const uniqueId = res.id ? `${forTeam}-bench-${res.id}` : `${forTeam}-sub-${i}-${Date.now()}`;
           return {
-            id: `${forTeam}-sub-${i}-${Date.now()}`,
+            ...res,
+            id: uniqueId, 
             team: forTeam,
-            name: res.name,
-            number: res.number,
             positionStr: res.position,
             relativeX: 10 + (i % 8) * 10,
             relativeY: 94 + (forTeam === 'away' ? 5 : 0)
           };
         });
 
-        return [...otherPlayers, ...updatedPitch, ...updatedBench];
+        return [...otherTeamsPlayers, ...updatedPitch, ...updatedBench];
       });
 
       if (!uiConfig.showSubsArea && availablePlayers.length > 0) {
-        setUiConfig(prev => ({ ...prev, showSubsArea: true }));
+        updateUiConfig('showSubsArea', true);
       }
     } catch (err) {
+      console.error('PickGlobalTeam Error:', err);
       alert('Error loading official roster');
     }
   };

@@ -33,7 +33,9 @@ const ControlsPanel = ({
     setDrawings,
     savedTeams,
     globalTeams,
-    resetPitch
+    resetPitch,
+    homeTeamId, setHomeTeamId,
+    awayTeamId, setAwayTeamId
   } = useTactics();
 
   const { user, logout } = useAuth();
@@ -151,16 +153,30 @@ const ControlsPanel = ({
           <input type="checkbox" checked={uiConfig.showSubsArea} onChange={(e) => updateUiConfig('showSubsArea', e.target.checked)} style={{ width: '13px', height: '13px', cursor: 'pointer' }} />
         </div>
 
-        <select onChange={(e) => { if (e.target.value) onPickGlobalTeam(e.target.value); e.target.value = ''; }}
+        <select 
+          value={homeTeamId || ''} 
+          onChange={(e) => { 
+            if (e.target.value) {
+              onPickGlobalTeam(e.target.value); 
+              setHomeTeamId(e.target.value);
+            }
+          }}
           style={{ width: '100%', padding: '6px', fontSize: '11px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}>
-          <option value="">↑ Fetch Home Roster...</option>
+          <option value="">{homeTeamId ? globalTeams.find(t => t.id === homeTeamId)?.name : '↑ Fetch Home Roster...'}</option>
           {globalTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-
+  
         {isDualTeamMode && (
-          <select onChange={(e) => { if (e.target.value) onPickGlobalTeamAway(e.target.value); e.target.value = ''; }}
+          <select 
+            value={awayTeamId || ''} 
+            onChange={(e) => { 
+              if (e.target.value) {
+                onPickGlobalTeamAway(e.target.value); 
+                setAwayTeamId(e.target.value);
+              }
+            }}
             style={{ width: '100%', padding: '6px', fontSize: '11px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}>
-            <option value="">↓ Fetch Away Roster...</option>
+            <option value="">{awayTeamId ? globalTeams.find(t => t.id === awayTeamId)?.name : '↓ Fetch Away Roster...'}</option>
             {globalTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         )}

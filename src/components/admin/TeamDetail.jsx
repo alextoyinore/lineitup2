@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchGlobalTeams, fetchGlobalPlayers, deleteGlobalPlayer, updateGlobalPlayer } from '../../services/apiService';
-import { Users, Plus, Loader2, Trash2, Pencil, Check, X, ArrowLeft } from 'lucide-react';
+import { Users, Plus, Loader2, Trash2, Pencil, Check, X, ArrowLeft, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const POSITIONS = ['GK','LB','CB','RB','LWB','RWB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF','LS','RS'];
 
@@ -11,10 +11,12 @@ const TeamDetail = () => {
   const [team, setTeam] = useState(null);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newPlayer, setNewPlayer] = useState({ name: '', number: '', position: '', avatar_url: '', is_starting: 0 });
+  const [newPlayer, setNewPlayer] = useState({ name: '', number: '', position: '', avatar_url: '', grade: 0, is_starting: 0 });
   const [uploading, setUploading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const playersPerPage = 20;
 
@@ -54,9 +56,9 @@ const TeamDetail = () => {
       const res = await fetch('/api/global/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ team_id: id, ...newPlayer, number: Number(newPlayer.number) })
+        body: JSON.stringify({ team_id: id, ...newPlayer, number: Number(newPlayer.number), grade: Number(newPlayer.grade) })
       });
-      if (res.ok) { setNewPlayer({ name: '', number: '', position: '', avatar_url: '', is_starting: 0 }); loadData(); }
+      if (res.ok) { setNewPlayer({ name: '', number: '', position: '', avatar_url: '', grade: 0, is_starting: 0 }); loadData(); }
     } catch { alert('Error saving player'); }
   };
 
@@ -74,6 +76,7 @@ const TeamDetail = () => {
         number: Number(editingPlayer.number),
         position: editingPlayer.position,
         avatar_url: editingPlayer.avatar_url,
+        grade: Number(editingPlayer.grade),
         is_starting: editingPlayer.is_starting
       });
       setEditingPlayer(null);
@@ -89,8 +92,14 @@ const TeamDetail = () => {
 
   if (!team) return <div style={{ color: 'var(--text-main)' }}>Team not found.</div>;
 
-  const totalPages = Math.ceil(players.length / playersPerPage);
-  const paginatedPlayers = players.slice((currentPage - 1) * playersPerPage, currentPage * playersPerPage);
+  const filteredPlayers = players.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.number.toString().includes(searchTerm);
+    const matchesRole = roleFilter === 'all' || p.is_starting.toString() === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  const totalPages = Math.ceil(filteredPlayers.length / playersPerPage);
+  const paginatedPlayers = filteredPlayers.slice((currentPage - 1) * playersPerPage, currentPage * playersPerPage);
 
   const inputStyle = { padding: '3px 6px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)' };
 
@@ -107,7 +116,7 @@ const TeamDetail = () => {
             </div>
             <div>
               <h1 style={{ fontSize: '24px', fontWeight: '800', margin: 0 }}>{team.name}</h1>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>{team.city} &middot; {team.stadium_name}</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>{team.city} &middot; {team.stadium_name}{team.manager_name ? ` · Manager: ${team.manager_name}` : ''}</p>
             </div>
           </div>
         </div>
@@ -120,7 +129,7 @@ const TeamDetail = () => {
       <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {showAdd && (
           <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
-            <form onSubmit={handleAddPlayer} style={{ display: 'grid', gridTemplateColumns: 'minmax(40px, auto) 2fr 1fr 1fr 1fr 100px', gap: '16px', alignItems: 'end' }}>
+            <form onSubmit={handleAddPlayer} style={{ display: 'grid', gridTemplateColumns: 'minmax(40px, auto) 2fr 1fr 1fr 1fr 1fr 100px', gap: '16px', alignItems: 'end' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Avatar</label>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
@@ -138,16 +147,20 @@ const TeamDetail = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Pos</label>
-                <select value={newPlayer.position} onChange={e => setNewPlayer({...newPlayer, position: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px', outline: 'none' }}>
-                  <option value="">Pos</option>
-                  {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <input placeholder="LW, ST" value={newPlayer.position} onChange={e => setNewPlayer({...newPlayer, position: e.target.value.toUpperCase()})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px', textTransform: 'uppercase' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>OVR</label>
+                <input placeholder="85" type="number" min="1" max="99" value={newPlayer.grade || ''} onChange={e => setNewPlayer({...newPlayer, grade: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Role</label>
                 <select value={newPlayer.is_starting} onChange={e => setNewPlayer({...newPlayer, is_starting: Number(e.target.value)})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px', outline: 'none' }}>
                   <option value={1}>Starter</option>
                   <option value={0}>Bench</option>
+                  <option value={-1}>Injured</option>
+                  <option value={-2}>Loaned Out</option>
+                  <option value={-3}>Reserved</option>
                 </select>
               </div>
               <button type="submit" disabled={uploading} style={{ padding: '10px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '12px' }}>Add</button>
@@ -155,14 +168,41 @@ const TeamDetail = () => {
           </div>
         )}
 
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+            <input 
+              placeholder="Search by name or number..." 
+              value={searchTerm} 
+              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+              style={{ ...inputStyle, width: '100%', paddingLeft: '32px', height: '36px' }} 
+            />
+          </div>
+          <select 
+            value={roleFilter} 
+            onChange={e => { setRoleFilter(e.target.value); setCurrentPage(1); }} 
+            style={{ ...inputStyle, width: '140px', height: '36px' }}
+          >
+            <option value="all">All Roles</option>
+            <option value="1">Starters</option>
+            <option value="0">Bench</option>
+            <option value="-1">Injured</option>
+            <option value="-2">Loaned Out</option>
+            <option value="-3">Reserved</option>
+          </select>
+        </div>
+
         <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '10px 16px', fontWeight: '800', width: '40px' }}>S/N</th>
                 <th style={{ padding: '10px 16px', fontWeight: '800', width: '60px' }}>No.</th>
                 <th style={{ padding: '10px 16px', fontWeight: '800', width: '50px' }}>Avi</th>
                 <th style={{ padding: '10px 16px', fontWeight: '800' }}>Name</th>
-                <th style={{ padding: '10px 16px', fontWeight: '800', width: '100px' }}>Position</th>
+                <th style={{ padding: '10px 16px', fontWeight: '800', width: '50px' }}>OVR</th>
+                <th style={{ padding: '10px 16px', fontWeight: '800', width: '120px' }}>Position</th>
                 <th style={{ padding: '10px 16px', fontWeight: '800', width: '100px' }}>Role</th>
                 <th style={{ padding: '10px 16px', fontWeight: '800', textAlign: 'right', width: '110px' }}>Actions</th>
               </tr>
@@ -170,8 +210,18 @@ const TeamDetail = () => {
             <tbody>
               {paginatedPlayers.map((player, idx) => {
                 const isEditing = editingPlayer?.id === player.id;
+                
+                const getRoleBadge = (val) => {
+                  if (val === 1) return <span style={{ padding: '2px 8px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>Starter</span>;
+                  if (val === -1) return <span style={{ padding: '2px 8px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>Injured</span>;
+                  if (val === -2) return <span style={{ padding: '2px 8px', background: 'rgba(168,85,247,0.1)', color: '#a855f7', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>Loaned</span>;
+                  if (val === -3) return <span style={{ padding: '2px 8px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>Reserved</span>;
+                  return <span style={{ padding: '2px 8px', background: 'rgba(100,116,139,0.1)', color: 'var(--text-muted)', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>Bench</span>;
+                };
+
                 return (
                   <tr key={player.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)', height: '40px' }}>
+                    <td style={{ padding: '4px 16px', fontWeight: '700', color: 'var(--text-muted)' }}>{(currentPage - 1) * playersPerPage + idx + 1}</td>
                     <td style={{ padding: '4px 16px', fontWeight: '800', color: 'var(--brand-primary)' }}>
                       {isEditing
                         ? <input type="number" value={editingPlayer.number} onChange={e => setEditingPlayer({...editingPlayer, number: e.target.value})} style={{ ...inputStyle, width: '48px' }} />
@@ -187,11 +237,14 @@ const TeamDetail = () => {
                         ? <input value={editingPlayer.name} onChange={e => setEditingPlayer({...editingPlayer, name: e.target.value})} style={{ ...inputStyle, width: '100%' }} />
                         : player.name}
                     </td>
+                    <td style={{ padding: '4px 16px', fontWeight: '800', color: 'var(--text-main)' }}>
+                      {isEditing
+                        ? <input type="number" min="1" max="99" value={editingPlayer.grade || ''} onChange={e => setEditingPlayer({...editingPlayer, grade: e.target.value})} style={{ ...inputStyle, width: '48px' }} />
+                        : player.grade || '—'}
+                    </td>
                     <td style={{ padding: '4px 16px' }}>
                       {isEditing
-                        ? <select value={editingPlayer.position} onChange={e => setEditingPlayer({...editingPlayer, position: e.target.value})} style={inputStyle}>
-                            {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                          </select>
+                        ? <input value={editingPlayer.position} onChange={e => setEditingPlayer({...editingPlayer, position: e.target.value.toUpperCase()})} style={{ ...inputStyle, width: '100px', textTransform: 'uppercase' }} />
                         : <span style={{ padding: '2px 8px', background: 'rgba(29,158,74,0.08)', color: 'var(--brand-primary)', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>{player.position}</span>}
                     </td>
                     <td style={{ padding: '4px 16px' }}>
@@ -199,8 +252,11 @@ const TeamDetail = () => {
                         ? <select value={editingPlayer.is_starting} onChange={e => setEditingPlayer({...editingPlayer, is_starting: Number(e.target.value)})} style={inputStyle}>
                             <option value={1}>Starter</option>
                             <option value={0}>Bench</option>
+                            <option value={-1}>Injured</option>
+                            <option value={-2}>Loaned Out</option>
+                            <option value={-3}>Reserved</option>
                           </select>
-                        : <span style={{ padding: '2px 8px', background: player.is_starting ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: player.is_starting ? '#f59e0b' : 'var(--text-muted)', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>{player.is_starting ? 'Starter' : 'Bench'}</span>}
+                        : getRoleBadge(player.is_starting)}
                     </td>
                     <td style={{ padding: '4px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>

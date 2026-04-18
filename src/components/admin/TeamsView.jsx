@@ -7,7 +7,7 @@ const TeamsView = () => {
   const [leagues, setLeagues] = useState([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [newTeam, setNewTeam] = useState({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
+  const [newTeam, setNewTeam] = useState({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', manager_name: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
   const [uploading, setUploading] = useState({ badge: false, stadium: false, map: false });
   const [showAdd, setShowAdd] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
@@ -50,9 +50,9 @@ const TeamsView = () => {
       await fetch('/api/global/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify(newTeam)
+        body: JSON.stringify({ name: newTeam.name, league_id: newTeam.league_id, logo_url: newTeam.logo_url, stadium_name: newTeam.stadium_name, city: newTeam.city, manager_name: newTeam.manager_name, foundation_year: newTeam.foundation_year, stadium_image_url: newTeam.stadium_image_url, location_map_url: newTeam.location_map_url })
       });
-      setNewTeam({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
+      setNewTeam({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', manager_name: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
       setShowAdd(false);
       loadData();
     } catch { alert('Error saving team'); }
@@ -67,7 +67,17 @@ const TeamsView = () => {
   const handleSaveEdit = async () => {
     if (!editingTeam) return;
     try {
-      await updateGlobalTeam(editingTeam.id, editingTeam);
+      await updateGlobalTeam(editingTeam.id, {
+        name: editingTeam.name,
+        league_id: editingTeam.league_id,
+        logo_url: editingTeam.logo_url,
+        stadium_name: editingTeam.stadium_name,
+        city: editingTeam.city,
+        manager_name: editingTeam.manager_name,
+        foundation_year: editingTeam.foundation_year,
+        stadium_image_url: editingTeam.stadium_image_url,
+        location_map_url: editingTeam.location_map_url
+      });
       setEditingTeam(null);
       loadData();
     } catch { alert('Error updating team'); }
@@ -76,7 +86,6 @@ const TeamsView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const teamsPerPage = 20;
 
-  // ... rest of the code is the same until filteredTeams
   const filteredTeams = selectedLeagueId === 'all' ? teams : teams.filter(t => t.league_id === selectedLeagueId);
   
   const totalPages = Math.ceil(filteredTeams.length / teamsPerPage);
@@ -114,7 +123,7 @@ const TeamsView = () => {
 
       {showAdd && (
         <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
-          <form onSubmit={handleAddTeam} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1fr 1fr 1fr auto auto 80px', gap: '12px', alignItems: 'end' }}>
+          <form onSubmit={handleAddTeam} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1fr 1fr 1fr 1fr auto auto 80px', gap: '12px', alignItems: 'end' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Badge</label>
               <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
@@ -136,6 +145,10 @@ const TeamsView = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>City</label>
               <input placeholder="Manchester" value={newTeam.city} onChange={e => setNewTeam({...newTeam, city: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Manager</label>
+              <input placeholder="Pep Guardiola" value={newTeam.manager_name} onChange={e => setNewTeam({...newTeam, manager_name: e.target.value})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '12px' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Stadium</label>
@@ -164,11 +177,13 @@ const TeamsView = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)' }}>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '40px' }}>S/N</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', width: '44px' }}></th>
               <th style={{ padding: '10px 16px', fontWeight: '800' }}>Team</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', width: '140px' }}>League</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', width: '120px' }}>City</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', width: '160px' }}>Stadium</th>
+              <th style={{ padding: '10px 16px', fontWeight: '800', width: '140px' }}>Manager</th>
               <th style={{ padding: '10px 16px', fontWeight: '800', textAlign: 'right', width: '150px' }}>Actions</th>
             </tr>
           </thead>
@@ -178,6 +193,7 @@ const TeamsView = () => {
               const leagueName = leagues.find(l => l.id === team.league_id)?.name || '—';
               return (
                 <tr key={team.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)', height: '44px' }}>
+                  <td style={{ padding: '4px 16px', fontWeight: '700', color: 'var(--text-muted)' }}>{(currentPage - 1) * teamsPerPage + idx + 1}</td>
                   <td style={{ padding: '4px 16px' }}>
                     <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
                       {(isEditing ? editingTeam.logo_url : team.logo_url)
@@ -208,6 +224,11 @@ const TeamsView = () => {
                     {isEditing
                       ? <input value={editingTeam.stadium_name || ''} onChange={e => setEditingTeam({...editingTeam, stadium_name: e.target.value})} style={inputStyle} placeholder="Stadium" />
                       : <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Building2 size={10} />{team.stadium_name || '—'}</span>}
+                  </td>
+                  <td style={{ padding: '4px 16px', color: 'var(--text-muted)' }}>
+                    {isEditing
+                      ? <input value={editingTeam.manager_name || ''} onChange={e => setEditingTeam({...editingTeam, manager_name: e.target.value})} style={inputStyle} placeholder="Manager" />
+                      : team.manager_name || '—'}
                   </td>
                   <td style={{ padding: '4px 16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
