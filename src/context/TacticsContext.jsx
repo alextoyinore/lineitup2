@@ -17,7 +17,10 @@ export const TacticsProvider = ({ children }) => {
     jerseyNumberOpacity: 1,
     jerseyNumberFontSize: 14,
     playerNameFontSize: 7,
-    positionIdOpacity: 0.8,
+    showOvrBadge: true,
+    ovrBadgeOpacity: 1,
+    showPositionBadge: true,
+    positionBadgeOpacity: 0.8,
     textHasShadow: true,
     showSubsArea: false,
     zoneHasFill: true

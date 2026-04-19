@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ShieldAlert, Menu, X, Save, Trash2, FolderOpen, Video } from 'lucide-react';
+import { ShieldAlert, Menu, X, Save, Trash2, FolderOpen, Video, Users } from 'lucide-react';
 import clsx from 'clsx';
 import '../App.css';
 
@@ -57,32 +57,30 @@ function TacticsBoard() {
 
       console.log(`Fetching team ${teamId}: Found ${starters.length} starters and ${benchPlayers.length} bench players.`);
 
-      setPlayers(prev => {
-        // 1. Identify existing pitch nodes for this team
-        const targetPitchNodes = prev.filter(p => p.team === forTeam && p.relativeY <= 90);
-        
-        // 2. Remove ALL existing players for this team (clears both old pitch nodes and old bench nodes)
-        const otherTeamsPlayers = prev.filter(p => p.team !== forTeam);
+      // 1. Identify existing pitch nodes for this team
+      // We must grab the CURRENT players to map them
+      setPlayers(currentPlayers => {
+        const targetPitchNodes = currentPlayers.filter(p => p.team === forTeam && p.relativeY <= 90);
+        const otherTeamsPlayers = currentPlayers.filter(p => p.team !== forTeam);
 
-        // 3. Map starters to the pitch nodes
+        const startersPool = [...starters];
+
         const updatedPitch = targetPitchNodes.map((p) => {
-          // Try to match by position string
-          let matchIndex = starters.findIndex(gp => {
+          let matchIndex = startersPool.findIndex(gp => {
             if (!gp.position) return false;
             const targetPos = (p.positionStr || p.name).toUpperCase();
             const positions = gp.position.split(',').map(s => s.trim().toUpperCase());
             return positions.includes(targetPos);
           });
           
-          // Fallback: match by any remaining starter
-          if (matchIndex === -1 && starters.length > 0) matchIndex = 0;
+          if (matchIndex === -1 && startersPool.length > 0) matchIndex = 0;
 
           if (matchIndex !== -1) {
-            const match = starters.splice(matchIndex, 1)[0];
+            const match = startersPool.splice(matchIndex, 1)[0];
             return { 
               ...p, 
               ...match,
-              id: p.id, // KEEP the pitch node's tactical ID
+              id: p.id,
               name: match.name,
               number: match.number,
               positionStr: match.position || p.positionStr,
@@ -93,8 +91,7 @@ function TacticsBoard() {
           return p;
         });
 
-        // 4. Any leftover starters + all designated bench players go to the bench
-        const allSubs = [...starters, ...benchPlayers];
+        const allSubs = [...startersPool, ...benchPlayers];
         const updatedBench = allSubs.map((res, i) => {
           const uniqueId = res.id ? `${forTeam}-bench-${res.id}` : `${forTeam}-sub-${i}-${Date.now()}`;
           return {
@@ -110,7 +107,7 @@ function TacticsBoard() {
         return [...otherTeamsPlayers, ...updatedPitch, ...updatedBench];
       });
 
-      if (!uiConfig.showSubsArea && availablePlayers.length > 0) {
+      if (window.innerWidth >= 1024 && !uiConfig.showSubsArea && availablePlayers.length > 0) {
         updateUiConfig('showSubsArea', true);
       }
     } catch (err) {
@@ -320,6 +317,26 @@ function TacticsBoard() {
             setDrawings={setDrawings}
             cameraStream={cameraStream}
           />
+        </div>
+
+        {/* Mobile Floating Toggles */}
+        <div className="mobile-pitch-toggles">
+          <button 
+            className="mobile-fab" 
+            onClick={() => setIsSidebarOpen(true)}
+            title="Open Sidebar"
+          >
+            <Menu size={24} />
+          </button>
+          
+          <button 
+            className={clsx('mobile-fab', uiConfig.showSubsArea && 'active')} 
+            onClick={() => updateUiConfig('showSubsArea', !uiConfig.showSubsArea)}
+            title="Toggle Bench"
+          >
+            <Users size={20} />
+            <span style={{ fontSize: '10px', fontWeight: '800' }}>BENCH</span>
+          </button>
         </div>
       </main>
     </div>

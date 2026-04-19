@@ -11,7 +11,7 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
   const isFirstRender = useRef(true);
 
   const absoluteX = isVertical ? (player.relativeY / 100) * width : (player.relativeX / 100) * width;
-  const absoluteY = isVertical ? (player.relativeX / 100) * height : (player.relativeY / 100) * height;
+  const absoluteY = isVertical ? ((100 - player.relativeX) / 100) * height : (player.relativeY / 100) * height;
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -36,7 +36,7 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
 
   const handleDragEnd = (e) => {
     if (!isInteractive) return;
-    const newRelativeX = isVertical ? (e.target.y() / height) * 100 : (e.target.x() / width) * 100;
+    const newRelativeX = isVertical ? 100 - (e.target.y() / height) * 100 : (e.target.x() / width) * 100;
     const newRelativeY = isVertical ? (e.target.x() / width) * 100 : (e.target.y() / height) * 100;
     if (onPlayerDragEnd) {
       onPlayerDragEnd(player, newRelativeX, newRelativeY, e.target.x(), e.target.y());
@@ -79,24 +79,26 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
         offsetX={PATH_WIDTH / 2}
         offsetY={PATH_HEIGHT / 2}
       />
-      <Text
-        text={player.positionStr || ''}
-        fill={ui.jerseyNumberColor}
-        opacity={ui.positionIdOpacity}
-        fontSize={6 * playerScale}
-        fontFamily="Inter"
-        fontStyle="bold"
-        align="right"
-        width={PATH_WIDTH * playerScale}
-        offsetX={(PATH_WIDTH * playerScale) / 2 - (6 * playerScale)}
-        offsetY={(PATH_HEIGHT * playerScale) / 2 - (18 * playerScale)}
-        shadowColor={ui.textHasShadow ? '#000' : 'transparent'}
-        shadowBlur={ui.textHasShadow ? 2 : 0}
-        onDblClick={(e) => onPositionClick(e, player)}
-        onDblTap={(e) => onPositionClick(e, player)}
-        onMouseEnter={(e) => { if (isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; } }}
-        onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
-      />
+      {ui.showPositionBadge && (
+        <Text
+          text={player.positionStr || ''}
+          fill={ui.jerseyNumberColor}
+          opacity={ui.positionBadgeOpacity}
+          fontSize={6 * playerScale}
+          fontFamily="Inter"
+          fontStyle="bold"
+          align="right"
+          width={PATH_WIDTH * playerScale}
+          offsetX={(PATH_WIDTH * playerScale) / 2 - (6 * playerScale)}
+          offsetY={(PATH_HEIGHT * playerScale) / 2 - (18 * playerScale)}
+          shadowColor={ui.textHasShadow ? '#000' : 'transparent'}
+          shadowBlur={ui.textHasShadow ? 2 : 0}
+          onDblClick={(e) => onPositionClick(e, player)}
+          onDblTap={(e) => onPositionClick(e, player)}
+          onMouseEnter={(e) => { if (isInteractive) { e.cancelBubble = true; e.target.getStage().container().style.cursor = 'text'; } }}
+          onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
+        />
+      )}
       <Text
         text={(player.number ?? '').toString()}
         fill={ui.jerseyNumberColor}
@@ -136,8 +138,8 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
       />
 
       {/* OVR Badge */}
-      {player.grade > 0 && (
-        <Group x={12 * playerScale} y={-12 * playerScale}>
+      {ui.showOvrBadge && player.grade > 0 && (
+        <Group x={12 * playerScale} y={-12 * playerScale} opacity={ui.ovrBadgeOpacity}>
           <Circle
             radius={6 * playerScale}
             fill="#1e293b"
@@ -230,6 +232,23 @@ const CameraFeed = ({ stream, width, height }) => {
 const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors, ui, currentTool, inkColor, drawings, setDrawings, cameraStream }, ref) => {
   const containerRef = useRef(null);
   const layerRef = useRef(null);
+  
+  const getAbsCoords = (relX, relY) => {
+    const width = containerRef.current?.offsetWidth || 800;
+    const height = containerRef.current?.offsetHeight || 500;
+    const isVertical = width < height;
+    if (isVertical) {
+      return {
+        x: (relY / 100) * width,
+        y: ((100 - relX) / 100) * height
+      };
+    }
+    return {
+      x: (relX / 100) * width,
+      y: (relY / 100) * height
+    };
+  };
+
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [editingNode, setEditingNode] = useState(null);
   const isDrawingRef = useRef(false);
@@ -348,7 +367,7 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
     for (const p of players) {
       if (p.id !== draggedPlayer.id && p.team === draggedPlayer.team) {
         const pAbsX = isVertical ? (p.relativeY / 100) * width : (p.relativeX / 100) * width;
-        const pAbsY = isVertical ? (p.relativeX / 100) * height : (p.relativeY / 100) * height;
+        const pAbsY = isVertical ? ((100 - p.relativeX) / 100) * height : (p.relativeY / 100) * height;
         const dist = Math.hypot(absX - pAbsX, absY - pAbsY);
 
         if (dist < swapThreshold) {
@@ -370,8 +389,8 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
     if (currentTool === 'pointer') return;
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    const relX = (pos.x / width) * 100;
-    const relY = (pos.y / height) * 100;
+    const relX = isVertical ? 100 - (pos.y / height) * 100 : (pos.x / width) * 100;
+    const relY = isVertical ? (pos.x / width) * 100 : (pos.y / height) * 100;
 
     if (currentTool === 'polygon') {
       // Check if clicking near the first point to close
@@ -421,8 +440,8 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
   const handleStageMouseMove = (e) => {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    const relX = (pos.x / width) * 100;
-    const relY = (pos.y / height) * 100;
+    const relX = isVertical ? 100 - (pos.y / height) * 100 : (pos.x / width) * 100;
+    const relY = isVertical ? (pos.x / width) * 100 : (pos.y / height) * 100;
     canvasMousePos.current = { x: relX, y: relY };
 
     if (currentTool === 'polygon') {
@@ -527,7 +546,16 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
             const dynamicFill = isFilled ? hexToRgba(line.color, 0.35) : 'transparent';
 
             // Map relative points back to absolute pixels
-            const absPoints = line.points.map((p, idx) => (idx % 2 === 0 ? (p / 100 * width) : (p / 100 * height)));
+            const absPoints = line.points.map((p, idx) => {
+              if (isVertical) {
+                // line.points is [relX1, relY1, relX2, relY2, ...]
+                // For vertical, absX = relY * width, absY = (100 - relX) * height
+                return idx % 2 === 0 
+                  ? (line.points[idx + 1] / 100 * width) 
+                  : ((100 - line.points[idx - 1]) / 100 * height);
+              }
+              return idx % 2 === 0 ? (p / 100 * width) : (p / 100 * height);
+            });
 
             if (line.tool === 'circle') {
               const radius = Math.sqrt(Math.pow(absPoints[2] - absPoints[0], 2) + Math.pow(absPoints[3] - absPoints[1], 2));
@@ -552,26 +580,35 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
           {activePolyPoints.length > 0 && (
             <Group>
               <Line
-                points={activePolyPoints.reduce((acc, p) => [...acc, p.x / 100 * width, p.y / 100 * height], ghostPoint ? [ghostPoint.x / 100 * width, ghostPoint.y / 100 * height] : [])}
+                points={activePolyPoints.reduce((acc, p) => {
+                  const coords = getAbsCoords(p.x, p.y);
+                  return [...acc, coords.x, coords.y];
+                }, ghostPoint ? (() => {
+                  const coords = getAbsCoords(ghostPoint.x, ghostPoint.y);
+                  return [coords.x, coords.y];
+                })() : [])}
                 stroke={inkColor}
                 strokeWidth={ui.lineThickness}
                 dash={[10, 5]}
               />
-              {activePolyPoints.map((p, idx) => (
-                <Circle
-                  key={idx}
-                  x={p.x / 100 * width}
-                  y={p.y / 100 * height}
-                  radius={idx === 0 ? 6 : 4}
-                  fill={idx === 0 ? "#fff" : inkColor}
-                  stroke={inkColor}
-                  strokeWidth={2}
-                />
-              ))}
+              {activePolyPoints.map((p, idx) => {
+                const coords = getAbsCoords(p.x, p.y);
+                return (
+                  <Circle
+                    key={idx}
+                    x={coords.x}
+                    y={coords.y}
+                    radius={idx === 0 ? 6 : 4}
+                    fill={idx === 0 ? "#fff" : inkColor}
+                    stroke={inkColor}
+                    strokeWidth={2}
+                  />
+                );
+              })}
             </Group>
           )}
 
-          {players.map(player => (
+          {players.filter(p => ui.showSubsArea || p.relativeY <= 90).map(player => (
             <PlayerNode key={player.id} player={player} width={width} height={height} updatePlayer={updatePlayer} isRecording={isRecording} teamColors={teamColors} onNameClick={handleNameClick} onNumberClick={handleNumberClick} onPositionClick={handlePositionClick} ui={ui} currentTool={currentTool} onPlayerDragEnd={handlePlayerDragEnd} isVertical={isVertical} />
           ))}
 

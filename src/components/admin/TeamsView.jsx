@@ -101,17 +101,17 @@ const TeamsView = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <h1 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Team Database</h1>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Manage club details, stadiums, and location data.</p>
           </div>
           {/* League filter */}
-          <div style={{ display: 'flex', background: 'var(--bg-panel)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)', gap: '2px' }}>
-            <button key="all" onClick={() => { setSelectedLeagueId('all'); setCurrentPage(1); }} style={{ padding: '5px 10px', borderRadius: '5px', border: 'none', background: selectedLeagueId === 'all' ? 'var(--brand-primary)' : 'transparent', color: selectedLeagueId === 'all' ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '10px', fontWeight: '700' }}>All</button>
+          <div style={{ display: 'flex', background: 'var(--bg-panel)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)', gap: '2px', overflowX: 'auto', maxWidth: '100%' }}>
+            <button key="all" onClick={() => { setSelectedLeagueId('all'); setCurrentPage(1); }} style={{ padding: '5px 10px', borderRadius: '5px', border: 'none', background: selectedLeagueId === 'all' ? 'var(--brand-primary)' : 'transparent', color: selectedLeagueId === 'all' ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap' }}>All</button>
             {leagues.map(l => (
-              <button key={l.id} onClick={() => { setSelectedLeagueId(l.id); setCurrentPage(1); }} style={{ padding: '5px 10px', borderRadius: '5px', border: 'none', background: selectedLeagueId === l.id ? 'var(--brand-primary)' : 'transparent', color: selectedLeagueId === l.id ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '10px', fontWeight: '700' }}>{l.name}</button>
+              <button key={l.id} onClick={() => { setSelectedLeagueId(l.id); setCurrentPage(1); }} style={{ padding: '5px 10px', borderRadius: '5px', border: 'none', background: selectedLeagueId === l.id ? 'var(--brand-primary)' : 'transparent', color: selectedLeagueId === l.id ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap' }}>{l.name}</button>
             ))}
           </div>
         </div>
@@ -123,7 +123,7 @@ const TeamsView = () => {
 
       {showAdd && (
         <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
-          <form onSubmit={handleAddTeam} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1fr 1fr 1fr 1fr auto auto 80px', gap: '12px', alignItems: 'end' }}>
+          <form onSubmit={handleAddTeam} className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1fr 1fr 1fr 1fr auto auto 80px', gap: '12px', alignItems: 'end' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase' }}>Badge</label>
               <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
@@ -173,7 +173,7 @@ const TeamsView = () => {
         </div>
       )}
 
-      <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+      <div className="responsive-table-container" style={{ background: 'var(--bg-panel)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-panel-muted)', borderBottom: '1px solid var(--border-color)' }}>

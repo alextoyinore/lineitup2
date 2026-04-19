@@ -76,7 +76,7 @@ const PlayerDetail = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '600px', margin: '0 auto' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <header className="admin-header" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <button onClick={() => navigate(`/admin/teams/${player.team_id}`)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer' }}>
           <ArrowLeft size={16} />
         </button>
@@ -104,7 +104,7 @@ const PlayerDetail = () => {
             <input value={player.name} onChange={e => setPlayer({...player, name: e.target.value})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px' }} required />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '11px', fontWeight: '800', opacity: 0.7, textTransform: 'uppercase' }}>Number</label>
               <input type="number" value={player.number} onChange={e => setPlayer({...player, number: e.target.value})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px' }} />
@@ -115,7 +115,7 @@ const PlayerDetail = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '11px', fontWeight: '800', opacity: 0.7, textTransform: 'uppercase' }}>Overall Grade (OVR)</label>
               <input type="number" min="1" max="99" value={player.grade || ''} onChange={e => setPlayer({...player, grade: e.target.value})} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '14px' }} />

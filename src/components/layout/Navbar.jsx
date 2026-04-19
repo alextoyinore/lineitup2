@@ -32,7 +32,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav style={{ 
+    <nav className="navbar-container" style={{ 
       height: '64px',
       background: 'var(--bg-panel)',
       borderBottom: '1px solid var(--border-color)',
@@ -57,10 +57,10 @@ const Navbar = () => {
           </div>
         </Link>
 
-        <div style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />
+        <div className="mobile-hide" style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />
 
         {/* STUDIO NAV */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="nav-links-desktop">
           <NavLink to="/" icon={Layout} label="Tactics Board" active={location.pathname === '/' || location.pathname === '/studio'} />
           <NavLink to="/studio/gallery" icon={Library} label="Library" active={location.pathname === '/studio/gallery'} />
           <NavLink to="/studio/settings" icon={SettingsIcon} label="Settings" active={location.pathname === '/studio/settings'} />
@@ -71,6 +71,7 @@ const Navbar = () => {
         {user.role === 'ADMIN' && (
           <Link 
             to={isAdminPath ? "/" : "/admin"} 
+            className={clsx(isAdminPath && "mobile-hide")}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -89,19 +90,19 @@ const Navbar = () => {
             }}
           >
             {isAdminPath ? (
-              <>Return to Studio <ChevronRight size={14} /></>
+              <><span className="mobile-hide">Return to Studio</span> <ChevronRight size={14} /></>
             ) : (
-              <><LayoutDashboard size={14} /> Admin Panel</>
+              <><LayoutDashboard size={14} /> <span className="mobile-hide">Admin Panel</span></>
             )}
           </Link>
         )}
 
         <ThemeToggler />
         
-        <div style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />
+        <div className="mobile-hide" style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ textAlign: 'right' }}>
+          <div className="nav-user-info" style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '13px', fontWeight: '800' }}>{user.username}</div>
             <div style={{ fontSize: '10px', fontWeight: '700', opacity: 0.5, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>{user.role}</div>
           </div>

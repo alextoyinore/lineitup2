@@ -48,6 +48,22 @@ const SettingsView = () => {
           <ConfigField label="Jersey Border">
             <input type="checkbox" checked={uiConfig.jerseyHasBorder} onChange={(e) => updateUiConfig('jerseyHasBorder', e.target.checked)} />
           </ConfigField>
+          <ConfigField label="Show OVR Badge">
+            <input type="checkbox" checked={uiConfig.showOvrBadge} onChange={(e) => updateUiConfig('showOvrBadge', e.target.checked)} />
+          </ConfigField>
+          {uiConfig.showOvrBadge && (
+            <ConfigField label="OVR Opacity">
+              <input type="range" min="0" max="1" step="0.1" value={uiConfig.ovrBadgeOpacity} onChange={(e) => updateUiConfig('ovrBadgeOpacity', Number(e.target.value))} />
+            </ConfigField>
+          )}
+          <ConfigField label="Show Position">
+            <input type="checkbox" checked={uiConfig.showPositionBadge} onChange={(e) => updateUiConfig('showPositionBadge', e.target.checked)} />
+          </ConfigField>
+          {uiConfig.showPositionBadge && (
+            <ConfigField label="Pos. Opacity">
+              <input type="range" min="0" max="1" step="0.1" value={uiConfig.positionBadgeOpacity} onChange={(e) => updateUiConfig('positionBadgeOpacity', Number(e.target.value))} />
+            </ConfigField>
+          )}
           <ConfigField label="Filled Zones">
             <input type="checkbox" checked={uiConfig.zoneHasFill} onChange={(e) => updateUiConfig('zoneHasFill', e.target.checked)} />
           </ConfigField>
