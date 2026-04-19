@@ -60,6 +60,9 @@ export const TacticsProvider = ({ children }) => {
   const [awayTeamId, setAwayTeamId] = useState(null);
   const [currentTeamId, setCurrentTeamId] = useState(null);
 
+  // --- Selection State ---
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
+
   // --- Tools State ---
   const [currentTool, setCurrentTool] = useState('pointer');
   const [inkColor, setInkColor] = useState('#FFFF00');
@@ -150,6 +153,37 @@ export const TacticsProvider = ({ children }) => {
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   }, []);
 
+  const movePlayers = useCallback((ids, dx, dy) => {
+    setPlayers(prev => prev.map(p => {
+      if (ids.includes(p.id)) {
+        return {
+          ...p,
+          relativeX: Math.max(0, Math.min(100, p.relativeX + dx)),
+          relativeY: Math.max(0, Math.min(100, p.relativeY + dy))
+        };
+      }
+      return p;
+    }));
+  }, []);
+
+  const togglePlayerSelection = useCallback((id, multiSelect = false) => {
+    setSelectedPlayerIds(prev => {
+      if (multiSelect) {
+        if (prev.includes(id)) {
+          return prev.filter(pId => pId !== id);
+        } else {
+          return [...prev, id];
+        }
+      } else {
+        return prev.includes(id) && prev.length === 1 ? [] : [id];
+      }
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedPlayerIds([]);
+  }, []);
+
   const updateUiConfig = (key, value) => {
     setUiConfig(prev => ({ ...prev, [key]: value }));
   };
@@ -215,7 +249,9 @@ export const TacticsProvider = ({ children }) => {
     reloadData,
     loadTeam,
     deleteSavedTeam,
-    currentTeamId, setCurrentTeamId
+    currentTeamId, setCurrentTeamId,
+    selectedPlayerIds, setSelectedPlayerIds,
+    movePlayers, togglePlayerSelection, clearSelection
   };
 
   return (

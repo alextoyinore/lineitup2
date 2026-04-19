@@ -37,6 +37,7 @@ db.exec(`
     city TEXT,
     manager_name TEXT,
     foundation_year INTEGER,
+    default_formation TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -107,6 +108,9 @@ try {
 } catch (e) {}
 try {
   db.exec('ALTER TABLE global_teams ADD COLUMN location_map_url TEXT');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE global_teams ADD COLUMN default_formation TEXT');
 } catch (e) {}
 try {
   db.exec('ALTER TABLE global_players ADD COLUMN avatar_url TEXT');

@@ -6,7 +6,7 @@ const JERSEY_PATH = "M 9 2 Q 12 5 15 2 L 20 3 L 23 8 L 19 11 L 17 8 L 17 22 L 7 
 const PATH_WIDTH = 24;
 const PATH_HEIGHT = 24;
 
-const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColors, onNameClick, onNumberClick, onPositionClick, ui, currentTool, onPlayerDragEnd, isVertical }) => {
+const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColors, onNameClick, onNumberClick, onPositionClick, ui, currentTool, onPlayerDragEnd, isVertical, isSelected, onSelect }) => {
   const groupRef = useRef(null);
   const isFirstRender = useRef(true);
 
@@ -57,6 +57,16 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
     if (!isRecording && isInteractive) e.target.getStage().container().style.cursor = 'grabbing';
   };
 
+  const handleClick = (e) => {
+    if (!isInteractive || isRecording) return;
+    // Don't trigger if it was a drag
+    if (e.target.getStage().isDragging()) return;
+    
+    onSelect(player.id, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey);
+    // Prevent stage click from clearing
+    e.cancelBubble = true;
+  };
+
   return (
     <Group
       ref={groupRef}
@@ -68,7 +78,19 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
       onDragEnd={handleDragEnd}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
+      onTap={handleClick}
     >
+      {isSelected && (
+        <Circle
+          radius={16 * playerScale}
+          fill="transparent"
+          stroke="#facc15"
+          strokeWidth={2}
+          dash={[4, 2]}
+          opacity={0.8}
+        />
+      )}
       <Path
         data={JERSEY_PATH}
         fill={jerseyColor}
@@ -229,7 +251,10 @@ const CameraFeed = ({ stream, width, height }) => {
 };
 
 
-const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors, ui, currentTool, inkColor, drawings, setDrawings, cameraStream }, ref) => {
+const Pitch = React.forwardRef(({ 
+  players, updatePlayer, isRecording, teamColors, ui, currentTool, inkColor, drawings, setDrawings, cameraStream,
+  selectedPlayerIds = [], togglePlayerSelection, clearSelection
+}, ref) => {
   const containerRef = useRef(null);
   const layerRef = useRef(null);
   
@@ -386,7 +411,13 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
   };
 
   const handleStageMouseDown = (e) => {
-    if (currentTool === 'pointer') return;
+    if (currentTool === 'pointer') {
+      // If clicking the stage (not a player), clear selection
+      if (e.target === e.target.getStage()) {
+        clearSelection?.();
+      }
+      return;
+    }
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     const relX = isVertical ? 100 - (pos.y / height) * 100 : (pos.x / width) * 100;
@@ -609,7 +640,24 @@ const Pitch = React.forwardRef(({ players, updatePlayer, isRecording, teamColors
           )}
 
           {players.filter(p => ui.showSubsArea || p.relativeY <= 90).map(player => (
-            <PlayerNode key={player.id} player={player} width={width} height={height} updatePlayer={updatePlayer} isRecording={isRecording} teamColors={teamColors} onNameClick={handleNameClick} onNumberClick={handleNumberClick} onPositionClick={handlePositionClick} ui={ui} currentTool={currentTool} onPlayerDragEnd={handlePlayerDragEnd} isVertical={isVertical} />
+            <PlayerNode 
+              key={player.id} 
+              player={player} 
+              width={width} 
+              height={height} 
+              updatePlayer={updatePlayer} 
+              isRecording={isRecording} 
+              teamColors={teamColors} 
+              onNameClick={handleNameClick} 
+              onNumberClick={handleNumberClick} 
+              onPositionClick={handlePositionClick} 
+              ui={ui} 
+              currentTool={currentTool} 
+              onPlayerDragEnd={handlePlayerDragEnd} 
+              isVertical={isVertical}
+              isSelected={selectedPlayerIds.includes(player.id)}
+              onSelect={togglePlayerSelection}
+            />
           ))}
 
           {cameraStream && (

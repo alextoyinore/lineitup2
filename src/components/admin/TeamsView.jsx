@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchGlobalTeams, fetchLeagues, deleteGlobalTeam, updateGlobalTeam } from '../../services/apiService';
 import { Users, Plus, Loader2, MapPin, Building2, Calendar, Trophy, Trash2, Pencil, Check, X } from 'lucide-react';
 
 const TeamsView = () => {
+  const [searchParams] = useSearchParams();
+  const leagueIdParam = searchParams.get('leagueId');
+
   const [teams, setTeams] = useState([]);
   const [leagues, setLeagues] = useState([]);
-  const [selectedLeagueId, setSelectedLeagueId] = useState('all');
+  const [selectedLeagueId, setSelectedLeagueId] = useState(leagueIdParam || 'all');
   const [loading, setLoading] = useState(true);
   const [newTeam, setNewTeam] = useState({ name: '', league_id: '', logo_url: '', stadium_name: '', city: '', manager_name: '', foundation_year: '', stadium_image_url: '', location_map_url: '' });
   const [uploading, setUploading] = useState({ badge: false, stadium: false, map: false });

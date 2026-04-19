@@ -2,7 +2,7 @@
 // X is length (left to right), Y is width (top to bottom).
 // The Home team attacks left to right, Away attacks right to left.
 
-const formations = {
+export const formations = {
   '4-3-3': [
     { id: 1, role: 'GK', x: 8, y: 50 },
     { id: 2, role: 'LB', x: 25, y: 15 },

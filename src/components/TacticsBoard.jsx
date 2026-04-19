@@ -29,7 +29,8 @@ function TacticsBoard() {
     homeTeamId, setHomeTeamId,
     awayTeamId, setAwayTeamId,
     loadTeam, currentTeamId, setCurrentTeamId,
-    deleteSavedTeam
+    deleteSavedTeam,
+    selectedPlayerIds, togglePlayerSelection, clearSelection, movePlayers
   } = useTactics();
 
   const pitchRef = useRef(null);
@@ -304,6 +305,9 @@ function TacticsBoard() {
             drawings={drawings}
             setDrawings={setDrawings}
             cameraStream={cameraStream}
+            selectedPlayerIds={selectedPlayerIds}
+            togglePlayerSelection={togglePlayerSelection}
+            clearSelection={clearSelection}
           />
         </div>
 

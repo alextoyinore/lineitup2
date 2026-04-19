@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchLeagues, saveLeague, updateLeague, deleteLeague } from '../../services/apiService';
 import { Trophy, Plus, Loader2, Globe, Trash2, Pencil, Check, X } from 'lucide-react';
 
@@ -132,7 +133,7 @@ const LeaguesView = () => {
                   <td style={{ padding: '4px 16px', fontWeight: '700' }}>
                     {isEditing
                       ? <input value={editingLeague.name} onChange={e => setEditingLeague({...editingLeague, name: e.target.value})} style={{ ...inputStyle, width: '100%' }} />
-                      : league.name}
+                      : <Link to={`/admin/teams?leagueId=${league.id}`} style={{ color: 'inherit', textDecoration: 'none' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--brand-primary)'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>{league.name}</Link>}
                   </td>
                   <td style={{ padding: '4px 16px' }}>
                     {isEditing

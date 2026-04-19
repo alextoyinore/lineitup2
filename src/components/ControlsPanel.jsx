@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Camera, Video, SquareSquare, MousePointer2, ArrowUpRight, Pencil, Eraser, MoveUpRight, Circle, Highlighter, Save, Trash2, Layout, Library, Settings as SettingsIcon, ShieldAlert, LogOut, User, LayoutDashboard, ChevronRight, Sun, Moon } from 'lucide-react';
+import { Camera, Video, SquareSquare, MousePointer2, ArrowUpRight, Pencil, Eraser, MoveUpRight, Circle, Highlighter, Save, Trash2, Layout, Library, Settings as SettingsIcon, ShieldAlert, LogOut, User, LayoutDashboard, ChevronRight, ChevronDown, Sun, Moon } from 'lucide-react';
 import { formationKeys } from '../utils/formations';
 import clsx from 'clsx';
 import ColorPicker from './ColorPicker';
@@ -35,7 +35,8 @@ const ControlsPanel = ({
     globalTeams,
     resetPitch,
     homeTeamId, setHomeTeamId,
-    awayTeamId, setAwayTeamId
+    awayTeamId, setAwayTeamId,
+    movePlayers, selectedPlayerIds, players, clearSelection
   } = useTactics();
 
   const { user, logout } = useAuth();
@@ -47,6 +48,14 @@ const ControlsPanel = ({
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef(null);
   const [newTeamName, setNewTeamName] = useState('');
+  const [expandedSections, setExpandedSections] = useState({
+    tools: true,
+    roster: true,
+    formations: true,
+    session: true,
+    movement: true,
+    library: true
+  });
 
   const handleSelectTeam = (team) => {
     if (!isOnBoard) {
@@ -85,6 +94,26 @@ const ControlsPanel = ({
   });
 
   const divider = <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '6px 0', opacity: 0.18 }} />;
+
+  const MovementPad = ({ onMove, title, subtitle, isActive = true }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', opacity: isActive ? 1 : 0.4, pointerEvents: isActive ? 'all' : 'none' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: '11px', fontWeight: '800' }}>{title}</span>
+        {subtitle && <span style={{ fontSize: '9px', fontWeight: '600', opacity: 0.5 }}>{subtitle}</span>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', maxWidth: '120px', margin: '0 auto' }}>
+        <div />
+        <button className="movement-btn" onClick={() => onMove(0, -2)}><ChevronDown style={{ transform: 'rotate(180deg)' }} size={16} /></button>
+        <div />
+        <button className="movement-btn" onClick={() => onMove(-2, 0)}><ChevronDown style={{ transform: 'rotate(90deg)' }} size={16} /></button>
+        <div style={{ background: 'var(--bg-panel)', borderRadius: '4px' }} />
+        <button className="movement-btn" onClick={() => onMove(2, 0)}><ChevronDown style={{ transform: 'rotate(-90deg)' }} size={16} /></button>
+        <div />
+        <button className="movement-btn" onClick={() => onMove(0, 2)}><ChevronDown size={16} /></button>
+        <div />
+      </div>
+    </div>
+  );
 
   return (
     <aside
@@ -125,154 +154,314 @@ const ControlsPanel = ({
       {divider}
 
       {/* ── TACTICAL TOOLS ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <span style={{ fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Tools</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center', background: 'var(--bg-panel-muted)', padding: '4px', borderRadius: '7px', border: '1px solid var(--border-color)' }}>
-          {[
-            { tool: 'pointer', icon: <MousePointer2 size={13} />, title: 'Move & Edit' },
-            { tool: 'arrow', icon: <ArrowUpRight size={13} />, title: 'Pass Arrow' },
-            { tool: 'dashed_arrow', icon: <MoveUpRight size={13} />, title: 'Run Arrow' },
-            { tool: 'freehand', icon: <Pencil size={13} />, title: 'Freehand' },
-            { tool: 'polygon', icon: <Highlighter size={13} />, title: 'Zone' },
-            { tool: 'circle', icon: <Circle size={13} />, title: 'Circle' },
-          ].map(({ tool, icon, title }) => (
-            <button key={tool} onClick={() => setCurrentTool(tool)} title={title}
-              style={{ padding: '5px', borderRadius: '5px', border: 'none', background: currentTool === tool ? 'var(--brand-primary)' : 'transparent', color: currentTool === tool ? '#fff' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-              {icon}
-            </button>
-          ))}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '3px' }}>
-            <ColorPicker color={inkColor} onChange={setInkColor} />
-            <button onClick={() => setDrawings([])} title="Clear All" style={{ padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: '#ef4444', cursor: 'pointer', display: 'flex' }}>
-              <Eraser size={11} />
-            </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button 
+          onClick={() => setExpandedSections(prev => ({ ...prev, tools: !prev.tools }))}
+          style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', width: '100%' 
+          }}
+        >
+          <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Tactical Tools</span>
+          {expandedSections.tools ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+        </button>
+
+        {expandedSections.tools && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', background: 'var(--bg-panel-muted)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)', animation: 'fadeIn 0.2s ease-out' }}>
+            {[
+              { tool: 'pointer', icon: <MousePointer2 size={18} />, title: 'Move' },
+              { tool: 'arrow', icon: <ArrowUpRight size={18} />, title: 'Pass' },
+              { tool: 'dashed_arrow', icon: <MoveUpRight size={18} />, title: 'Run' },
+              { tool: 'freehand', icon: <Pencil size={18} />, title: 'Draw' },
+              { tool: 'polygon', icon: <Highlighter size={18} />, title: 'Zone' },
+              { tool: 'circle', icon: <Circle size={18} />, title: 'Circle' },
+            ].map(({ tool, icon, title }) => (
+              <button 
+                key={tool} 
+                onClick={() => setCurrentTool(tool)} 
+                title={title}
+                style={{ 
+                  height: '42px',
+                  borderRadius: '10px', 
+                  border: '1px solid',
+                  borderColor: currentTool === tool ? 'var(--brand-primary)' : 'var(--border-color)',
+                  background: currentTool === tool ? 'var(--brand-primary)' : 'var(--bg-panel)', 
+                  color: currentTool === tool ? '#fff' : 'var(--text-muted)', 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {icon}
+                <span style={{ fontSize: '8px', fontWeight: '800', textTransform: 'uppercase' }}>{title}</span>
+              </button>
+            ))}
+            
+            <div style={{ gridColumn: '1 / -1', marginTop: '4px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>Ink:</span>
+                <ColorPicker color={inkColor} onChange={setInkColor} />
+              </div>
+              <button 
+                onClick={() => setDrawings([])} 
+                title="Clear All" 
+                style={{ 
+                  padding: '6px 12px', borderRadius: '8px', border: '1px solid #ef444422', 
+                  background: '#ef444411', color: '#ef4444', cursor: 'pointer', 
+                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: '800' 
+                }}
+              >
+                <Eraser size={14} /> CLEAR
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      {divider}
+
+      {/* ── SQUAD MOVEMENT ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button 
+          onClick={() => setExpandedSections(prev => ({ ...prev, movement: !prev.movement }))}
+          style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', width: '100%' 
+          }}
+        >
+          <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Squad Movement</span>
+          {expandedSections.movement ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+        </button>
+
+        {expandedSections.movement && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-panel-muted)', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', animation: 'fadeIn 0.2s ease-out' }}>
+            
+            <MovementPad 
+              title="Home Team" 
+              onMove={(dx, dy) => movePlayers(players.filter(p => p.team === 'home').map(p => p.id), dx, dy)} 
+            />
+
+            {isDualTeamMode && (
+              <>
+                <div style={{ height: '1px', background: 'var(--border-color)', opacity: 0.1 }} />
+                <MovementPad 
+                  title="Away Team" 
+                  onMove={(dx, dy) => movePlayers(players.filter(p => p.team === 'away').map(p => p.id), dx, dy)} 
+                />
+              </>
+            )}
+
+            <div style={{ height: '1px', background: 'var(--border-color)', opacity: 0.1 }} />
+            
+            <MovementPad 
+              title="Selection" 
+              subtitle={`${selectedPlayerIds.length} selected`}
+              isActive={selectedPlayerIds.length > 0}
+              onMove={(dx, dy) => movePlayers(selectedPlayerIds, dx, dy)} 
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '4px' }}>
+              <button 
+                className="action-btn" 
+                onClick={() => clearSelection()}
+                disabled={selectedPlayerIds.length === 0}
+                style={{ fontSize: '9px', padding: '6px', opacity: selectedPlayerIds.length > 0 ? 1 : 0.5 }}
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {divider}
 
       {/* ── ROSTER SETUP ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <span style={{ fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Roster</span>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-          <button className={clsx('action-btn', !isDualTeamMode && 'active')} onClick={() => setIsDualTeamMode(false)} style={{ fontSize: '11px', padding: '6px', borderRadius: '7px' }}>Single</button>
-          <button className={clsx('action-btn', isDualTeamMode && 'active')} onClick={() => setIsDualTeamMode(true)} style={{ fontSize: '11px', padding: '6px', borderRadius: '7px' }}>Match</button>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700' }}>Substitute Bench</span>
-          <input type="checkbox" checked={uiConfig.showSubsArea} onChange={(e) => updateUiConfig('showSubsArea', e.target.checked)} style={{ width: '13px', height: '13px', cursor: 'pointer' }} />
-        </div>
-
-        <select 
-          value={homeTeamId || ''} 
-          onChange={(e) => { 
-            if (e.target.value) {
-              onPickGlobalTeam(e.target.value); 
-              setHomeTeamId(e.target.value);
-            }
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button 
+          onClick={() => setExpandedSections(prev => ({ ...prev, roster: !prev.roster }))}
+          style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', width: '100%' 
           }}
-          style={{ width: '100%', padding: '6px', fontSize: '11px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}>
-          <option value="">{homeTeamId ? globalTeams.find(t => t.id === homeTeamId)?.name : '↑ Fetch Home Roster...'}</option>
-          {globalTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-  
-        {isDualTeamMode && (
-          <select 
-            value={awayTeamId || ''} 
-            onChange={(e) => { 
-              if (e.target.value) {
-                onPickGlobalTeamAway(e.target.value); 
-                setAwayTeamId(e.target.value);
-              }
-            }}
-            style={{ width: '100%', padding: '6px', fontSize: '11px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}>
-            <option value="">{awayTeamId ? globalTeams.find(t => t.id === awayTeamId)?.name : '↓ Fetch Away Roster...'}</option>
-            {globalTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+        >
+          <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Roster Setup</span>
+          {expandedSections.roster ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+        </button>
+
+        {expandedSections.roster && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', animation: 'fadeIn 0.2s ease-out' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+              <button className={clsx('action-btn', !isDualTeamMode && 'active')} onClick={() => setIsDualTeamMode(false)} style={{ fontSize: '11px', padding: '6px', borderRadius: '7px' }}>Single</button>
+              <button className={clsx('action-btn', isDualTeamMode && 'active')} onClick={() => setIsDualTeamMode(true)} style={{ fontSize: '11px', padding: '6px', borderRadius: '7px' }}>Match</button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>Substitute Bench</span>
+              <input type="checkbox" checked={uiConfig.showSubsArea} onChange={(e) => updateUiConfig('showSubsArea', e.target.checked)} style={{ width: '13px', height: '13px', cursor: 'pointer' }} />
+            </div>
+
+            <select 
+              value={homeTeamId || ''} 
+              onChange={(e) => { 
+                if (e.target.value) {
+                  onPickGlobalTeam(e.target.value); 
+                  setHomeTeamId(e.target.value);
+                }
+              }}
+              style={{ width: '100%', padding: '8px', fontSize: '11px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}>
+              <option value="">{homeTeamId ? globalTeams.find(t => t.id === homeTeamId)?.name : '↑ Fetch Home Roster...'}</option>
+              {globalTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+      
+            {isDualTeamMode && (
+              <select 
+                value={awayTeamId || ''} 
+                onChange={(e) => { 
+                  if (e.target.value) {
+                    onPickGlobalTeamAway(e.target.value); 
+                    setAwayTeamId(e.target.value);
+                  }
+                }}
+                style={{ width: '100%', padding: '8px', fontSize: '11px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}>
+                <option value="">{awayTeamId ? globalTeams.find(t => t.id === awayTeamId)?.name : '↓ Fetch Away Roster...'}</option>
+                {globalTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+          </div>
         )}
       </div>
 
       {divider}
 
       {/* ── FORMATIONS ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700' }}>{isDualTeamMode ? 'Home' : 'Squad'}</span>
-          <ColorPicker color={teamColors.home} onChange={(c) => updateTeamColor('home', c)} />
-        </div>
-        <select value={homeFormation} onChange={(e) => setHomeFormation(e.target.value)}
-          style={{ width: '100%', padding: '6px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '11px' }}>
-          {formationKeys.map(f => <option key={`h-${f}`} value={f}>{f}</option>)}
-        </select>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button 
+          onClick={() => setExpandedSections(prev => ({ ...prev, formations: !prev.formations }))}
+          style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', width: '100%' 
+          }}
+        >
+          <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Formations</span>
+          {expandedSections.formations ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+        </button>
 
-        {isDualTeamMode && (<>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700' }}>Away</span>
-            <ColorPicker color={teamColors.away} onChange={(c) => updateTeamColor('away', c)} />
+        {expandedSections.formations && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', animation: 'fadeIn 0.2s ease-out' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>{isDualTeamMode ? 'Home' : 'Squad'}</span>
+              <ColorPicker color={teamColors.home} onChange={(c) => updateTeamColor('home', c)} />
+            </div>
+            <select value={homeFormation} onChange={(e) => setHomeFormation(e.target.value)}
+              style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '11px' }}>
+              {formationKeys.map(f => <option key={`h-${f}`} value={f}>{f}</option>)}
+            </select>
+
+            {isDualTeamMode && (<>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700' }}>Away</span>
+                <ColorPicker color={teamColors.away} onChange={(c) => updateTeamColor('away', c)} />
+              </div>
+              <select value={awayFormation} onChange={(e) => setAwayFormation(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '11px' }}>
+                {formationKeys.map(f => <option key={`a-${f}`} value={f}>{f}</option>)}
+              </select>
+            </>)}
           </div>
-          <select value={awayFormation} onChange={(e) => setAwayFormation(e.target.value)}
-            style={{ width: '100%', padding: '6px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '11px' }}>
-            {formationKeys.map(f => <option key={`a-${f}`} value={f}>{f}</option>)}
-          </select>
-        </>)}
+        )}
       </div>
 
       {divider}
 
       {/* ── RECORD / CAPTURE ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <span style={{ fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Session</span>
-        <button className="action-btn" onClick={onDownloadImage} disabled={isRecording}
-          style={{ background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', fontSize: '11px', padding: '7px' }}>
-          <Camera size={13} /> Screenshot
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button 
+          onClick={() => setExpandedSections(prev => ({ ...prev, session: !prev.session }))}
+          style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', width: '100%' 
+          }}
+        >
+          <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Session</span>
+          {expandedSections.session ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
         </button>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: '700', padding: '6px', background: 'var(--bg-panel-muted)', borderRadius: '7px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={useMicrophone} onChange={(e) => setUseMicrophone(e.target.checked)} disabled={isRecording} style={{ width: '11px', height: '11px' }} /> Mic
-          </label>
-          <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: '700', padding: '6px', background: 'var(--bg-panel-muted)', borderRadius: '7px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={useCamera} onChange={(e) => setUseCamera(e.target.checked)} disabled={isRecording} style={{ width: '11px', height: '11px' }} /> Cam
-          </label>
-        </div>
-        <button className={clsx('action-btn', isRecording ? 'btn-danger' : 'btn-primary')} onClick={onToggleRecording} style={{ fontSize: '11px', padding: '8px' }}>
-          {isRecording ? <SquareSquare size={13} /> : <Video size={13} />}
-          {isRecording ? 'Stop Recording' : 'Start Recording'}
-        </button>
+
+        {expandedSections.session && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', animation: 'fadeIn 0.2s ease-out' }}>
+            <button className="action-btn" onClick={onDownloadImage} disabled={isRecording}
+              style={{ background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', fontSize: '11px', padding: '8px' }}>
+              <Camera size={14} /> Screenshot
+            </button>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: '700', padding: '6px', background: 'var(--bg-panel-muted)', borderRadius: '8px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={useMicrophone} onChange={(e) => setUseMicrophone(e.target.checked)} disabled={isRecording} style={{ width: '11px', height: '11px' }} /> Mic
+              </label>
+              <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: '700', padding: '6px', background: 'var(--bg-panel-muted)', borderRadius: '8px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={useCamera} onChange={(e) => setUseCamera(e.target.checked)} disabled={isRecording} style={{ width: '11px', height: '11px' }} /> Cam
+              </label>
+            </div>
+            <button className={clsx('action-btn', isRecording ? 'btn-danger' : 'btn-primary')} onClick={onToggleRecording} style={{ fontSize: '11px', padding: '10px' }}>
+              {isRecording ? <SquareSquare size={14} /> : <Video size={14} />}
+              {isRecording ? 'Stop Recording' : 'Start Recording'}
+            </button>
+          </div>
+        )}
       </div>
 
       {divider}
 
+      {/* ── SQUAD MOVEMENT ── */}
+
+      {divider}
+
       {/* ── LIBRARY ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <span style={{ fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Library</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <input type="text" placeholder="Save setup..." value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)}
-            style={{ flex: 1, padding: '6px 8px', fontSize: '11px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none' }} />
-          <button onClick={() => { if (newTeamName) { onSaveTeam(newTeamName); setNewTeamName(''); } }}
-            style={{ width: '32px', background: 'var(--brand-primary)', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Save size={13} />
-          </button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '150px', overflowY: 'auto' }}>
-          {savedTeams?.map(team => (
-            <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--bg-panel-muted)', borderRadius: '7px', border: '1px solid var(--border-color)' }}>
-              <div onClick={() => handleSelectTeam(team)} style={{ cursor: 'pointer', flex: 1 }}>
-                <div style={{ fontWeight: '700', fontSize: '11px' }}>{team.name}</div>
-                <div style={{ fontSize: '10px', opacity: 0.45 }}>{team.home_formation}</div>
-              </div>
-              <button onClick={() => onDeleteTeam(team.id)} style={{ padding: '3px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#ef4444'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
-                <Trash2 size={12} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button 
+          onClick={() => setExpandedSections(prev => ({ ...prev, library: !prev.library }))}
+          style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', width: '100%' 
+          }}
+        >
+          <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Board Library</span>
+          {expandedSections.library ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+        </button>
+
+        {expandedSections.library && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', animation: 'fadeIn 0.2s ease-out' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input type="text" placeholder="Board name..." value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)}
+                style={{ flex: 1, padding: '8px 10px', fontSize: '11px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none' }} />
+              <button onClick={() => { if (newTeamName) { onSaveTeam(newTeamName); setNewTeamName(''); } }}
+                style={{ width: '36px', background: 'var(--brand-primary)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Save size={14} />
               </button>
             </div>
-          ))}
-        </div>
-        <button className="action-btn" onClick={resetPitch} disabled={isRecording}
-          style={{ width: '100%', marginTop: '2px', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: '11px', padding: '6px' }}>
-          Reset Pitch
-        </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '180px', overflowY: 'auto' }}>
+              {savedTeams?.map(team => (
+                <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--bg-panel-muted)', borderRadius: '9px', border: '1px solid var(--border-color)', transition: 'all 0.15s' }}>
+                  <div onClick={() => handleSelectTeam(team)} style={{ cursor: 'pointer', flex: 1 }}>
+                    <div style={{ fontWeight: '800', fontSize: '11px' }}>{team.name}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.5, fontWeight: '700' }}>{team.home_formation}</div>
+                  </div>
+                  <button onClick={() => onDeleteTeam(team.id)} style={{ padding: '4px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button className="action-btn" onClick={resetPitch} disabled={isRecording}
+              style={{ width: '100%', marginTop: '4px', background: '#ef444411', border: '1px solid #ef444422', color: '#ef4444', fontSize: '10px', fontWeight: '800', padding: '8px' }}>
+              RESET PITCH
+            </button>
+          </div>
+        )}
       </div>
 
       {divider}

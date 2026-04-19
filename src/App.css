@@ -104,6 +104,12 @@ header {
   to { opacity: 1; }
 }
 
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.02); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .controls-sidebar {
   padding: 14px;
   background: var(--bg-panel);
@@ -206,6 +212,31 @@ header {
 .btn-danger:hover {
   background: #e62f55;
   color: #fff;
+}
+
+.movement-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.movement-btn:hover {
+  background: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
+  transform: scale(1.05);
+}
+
+.movement-btn:active {
+  transform: scale(0.95);
 }
 
 /* TV & Desktop scaling */
