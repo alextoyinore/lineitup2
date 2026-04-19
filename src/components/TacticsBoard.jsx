@@ -7,7 +7,7 @@ import Pitch from './Pitch';
 import ControlsPanel from './ControlsPanel';
 import AuthPage from './AuthPage';
 import { generatePlayers, formationKeys } from '../utils/formations';
-import { fetchTeams, saveTeam, deleteTeam, uploadRecording, fetchRecordings, fetchGlobalTeams, fetchGlobalPlayers } from '../services/apiService';
+import { fetchTeams, saveTeam, uploadRecording, fetchRecordings, fetchGlobalTeams, fetchGlobalPlayers } from '../services/apiService';
 import { useAuth } from '../context/AuthContext';
 
 import { useTactics } from '../context/TacticsContext';
@@ -27,7 +27,9 @@ function TacticsBoard() {
     inkColor, setInkColor,
     resetPitch, reloadData,
     homeTeamId, setHomeTeamId,
-    awayTeamId, setAwayTeamId
+    awayTeamId, setAwayTeamId,
+    loadTeam, currentTeamId, setCurrentTeamId,
+    deleteSavedTeam
   } = useTactics();
 
   const pitchRef = useRef(null);
@@ -140,26 +142,12 @@ function TacticsBoard() {
   };
 
   const handleLoadTeam = (team) => {
-    setCurrentTeamId(team.id);
-    setHomeFormation(team.home_formation);
-    setAwayFormation(team.away_formation);
-    setIsDualTeamMode(team.is_dual_team);
-    setTeamColors(team.team_colors);
-    setUiConfig(team.ui_config);
-    setPlayers(team.players);
-    setDrawings(team.drawings);
+    loadTeam(team);
     setIsSidebarOpen(false);
   };
 
-  const handleDeleteTeam = async (id) => {
-    if (!confirm('Are you sure you want to delete this team?')) return;
-    try {
-      await deleteTeam(id);
-      if (currentTeamId === id) setCurrentTeamId(null);
-      reloadData();
-    } catch (err) {
-      alert('Error deleting team: ' + err.message);
-    }
+  const handleDeleteTeam = (id) => {
+    deleteSavedTeam(id);
   };
 
   const handleDownloadImage = () => {

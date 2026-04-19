@@ -1,30 +1,45 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { formationKeys, generatePlayers } from '../utils/formations';
-import { fetchTeams, fetchRecordings, fetchGlobalTeams } from '../services/apiService';
+import { fetchTeams, fetchRecordings, fetchGlobalTeams, deleteTeam } from '../services/apiService';
 
 const TacticsContext = createContext();
 
 export const TacticsProvider = ({ children }) => {
   // --- Pitch Configuration ---
-  const [uiConfig, setUiConfig] = useState({
-    pitchColor1: '#28803d',
-    pitchColor2: '#2c8a42',
-    pitchLineColor: '#FFFFFF',
-    lineThickness: 2,
-    jerseyScaleMult: 1,
-    jerseyHasBorder: true,
-    jerseyNumberColor: '#FFFFFF',
-    jerseyNumberOpacity: 1,
-    jerseyNumberFontSize: 14,
-    playerNameFontSize: 7,
-    showOvrBadge: true,
-    ovrBadgeOpacity: 1,
-    showPositionBadge: true,
-    positionBadgeOpacity: 0.8,
-    textHasShadow: true,
-    showSubsArea: false,
-    zoneHasFill: true
+  const [uiConfig, setUiConfig] = useState(() => {
+    const saved = localStorage.getItem('lineitup_ui_config');
+    const defaults = {
+      pitchColor1: '#28803d',
+      pitchColor2: '#2c8a42',
+      pitchLineColor: '#FFFFFF',
+      lineThickness: 2,
+      jerseyScaleMult: 1,
+      jerseyHasBorder: true,
+      jerseyNumberColor: '#FFFFFF',
+      jerseyNumberOpacity: 1,
+      jerseyNumberFontSize: 14,
+      playerNameFontSize: 7,
+      showOvrBadge: true,
+      ovrBadgeOpacity: 1,
+      showPositionBadge: true,
+      positionBadgeOpacity: 0.8,
+      textHasShadow: true,
+      showSubsArea: false,
+      zoneHasFill: true
+    };
+    if (saved) {
+      try {
+        return { ...defaults, ...JSON.parse(saved) };
+      } catch (e) {
+        return defaults;
+      }
+    }
+    return defaults;
   });
+
+  useEffect(() => {
+    localStorage.setItem('lineitup_ui_config', JSON.stringify(uiConfig));
+  }, [uiConfig]);
 
   // --- Team State ---
   const [homeFormation, setHomeFormation] = useState(formationKeys[0]);
@@ -43,6 +58,7 @@ export const TacticsProvider = ({ children }) => {
   const [globalTeams, setGlobalTeams] = useState([]);
   const [homeTeamId, setHomeTeamId] = useState(null);
   const [awayTeamId, setAwayTeamId] = useState(null);
+  const [currentTeamId, setCurrentTeamId] = useState(null);
 
   // --- Tools State ---
   const [currentTool, setCurrentTool] = useState('pointer');
@@ -158,6 +174,28 @@ export const TacticsProvider = ({ children }) => {
     }
   };
 
+  const loadTeam = useCallback((team) => {
+    setCurrentTeamId(team.id);
+    setHomeFormation(team.home_formation);
+    setAwayFormation(team.away_formation);
+    setIsDualTeamMode(team.is_dual_team);
+    setTeamColors(team.team_colors);
+    setUiConfig(team.ui_config);
+    setPlayers(team.players);
+    setDrawings(team.drawings);
+  }, []);
+
+  const deleteSavedTeam = useCallback(async (id) => {
+    if (!confirm('Are you sure you want to delete this team?')) return;
+    try {
+      await deleteTeam(id);
+      if (currentTeamId === id) setCurrentTeamId(null);
+      reloadData();
+    } catch (err) {
+      alert('Error deleting team: ' + err.message);
+    }
+  }, [currentTeamId, reloadData]);
+
   const value = {
     uiConfig, setUiConfig, updateUiConfig,
     homeFormation, setHomeFormation,
@@ -174,7 +212,10 @@ export const TacticsProvider = ({ children }) => {
     currentTool, setCurrentTool,
     inkColor, setInkColor,
     resetPitch,
-    reloadData
+    reloadData,
+    loadTeam,
+    deleteSavedTeam,
+    currentTeamId, setCurrentTeamId
   };
 
   return (

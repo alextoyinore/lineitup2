@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTactics } from '../../context/TacticsContext';
 import { deleteRecording, renameRecording, fetchRecordings } from '../../services/apiService';
 import {
   Video, Calendar, Clock, Play, Pause, Trash2, Scissors,
   Download, Pencil, Check, X, ChevronLeft, SkipBack, SkipForward,
-  Volume2, Loader2
+  Volume2, Loader2, Layout, MousePointer2
 } from 'lucide-react';
 
 /* ─── helpers ─── */
@@ -298,14 +299,52 @@ const VideoEditor = ({ rec, onClose, onDelete, onRename }) => {
     </div>
   );
 };
+/* ─── TacticCard component ─── */
+const TacticCard = ({ team, onLoad, onDelete }) => (
+  <div 
+    style={{ background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', transition: 'all 0.15s' }}
+    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+  >
+    <div style={{ padding: '24px', background: 'rgba(29, 158, 74, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border-color)' }}>
+      <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 12px rgba(29, 158, 74, 0.3)' }}>
+        <Layout size={24} />
+      </div>
+    </div>
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0 }}>{team.name}</h3>
+        <span style={{ fontSize: '10px', fontWeight: '800', padding: '2px 6px', background: 'var(--bg-panel-muted)', borderRadius: '4px', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+          {team.home_formation}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={11} /> {new Date(team.created_at).toLocaleDateString()}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MousePointer2 size={11} /> {team.is_dual_team ? 'Match' : 'Single'}</span>
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button onClick={() => onLoad(team)}
+          style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <Play size={12} fill="#fff" /> Load Board
+        </button>
+        <button onClick={() => onDelete(team.id)}
+          style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: '#ff4d4d', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 /* ─── Main GalleryView ─── */
 const GalleryView = () => {
-  const { reloadData } = useTactics();
+  const { reloadData, savedTeams, loadTeam, deleteSavedTeam } = useTactics();
   const [recordings, setRecordings] = useState([]);
+  const [category, setCategory] = useState('TACTICS'); // 'TACTICS' | 'VIDEOS'
   const [filter, setFilter] = useState('ALL');
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const load = async () => {
     try { const data = await fetchRecordings(); setRecordings(data); } catch (e) { console.error(e); }
@@ -314,79 +353,118 @@ const GalleryView = () => {
 
   useEffect(() => { load(); }, []);
 
-  const handleDelete = (id) => { setRecordings(prev => prev.filter(r => r.id !== id)); reloadData(); };
-  const handleRename = (id, title) => { setRecordings(prev => prev.map(r => r.id === id ? { ...r, title } : r)); };
+  const handleDeleteRecording = (id) => { setRecordings(prev => prev.filter(r => r.id !== id)); reloadData(); };
+  const handleRenameRecording = (id, title) => { setRecordings(prev => prev.map(r => r.id === id ? { ...r, title } : r)); };
 
-  const filtered = filter === 'ALL' ? recordings : recordings.filter(r => r.media_type === filter);
+  const handleLoadBoard = (team) => {
+    loadTeam(team);
+    navigate('/studio');
+  };
+
+  const filteredVideos = filter === 'ALL' ? recordings : recordings.filter(r => r.media_type === filter);
 
   if (editing) {
-    return <VideoEditor rec={editing} onClose={() => setEditing(null)} onDelete={handleDelete} onRename={handleRename} />;
+    return <VideoEditor rec={editing} onClose={() => setEditing(null)} onDelete={handleDeleteRecording} onRename={handleRenameRecording} />;
   }
 
   return (
     <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '28px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Tactical Gallery</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>Recorded sessions and clipped highlights</p>
+          <h1 style={{ fontSize: '24px', fontWeight: '900', margin: 0, letterSpacing: '-0.5px' }}>Studio Library</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Your saved tactical boards and session recordings</p>
         </div>
-        <div style={{ display: 'flex', background: 'var(--bg-panel)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)', gap: '2px' }}>
-          {['ALL', 'RAW', 'EDITED'].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{ padding: '7px 16px', borderRadius: '7px', border: 'none', background: filter === f ? 'var(--brand-primary)' : 'transparent', color: filter === f ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '12px', fontWeight: '700', transition: 'all 0.15s' }}>
-              {f}
+        <div style={{ display: 'flex', background: 'var(--bg-panel)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)', gap: '4px' }}>
+          {[
+            { id: 'TACTICS', label: 'Tactics Boards', icon: Layout },
+            { id: 'VIDEOS', label: 'Recordings', icon: Video }
+          ].map(cat => (
+            <button key={cat.id} onClick={() => setCategory(cat.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '9px', border: 'none', background: category === cat.id ? 'var(--brand-primary)' : 'transparent', color: category === cat.id ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontWeight: '700', transition: 'all 0.2s' }}>
+              <cat.icon size={16} /> {cat.label}
             </button>
           ))}
         </div>
       </header>
+
+      {category === 'VIDEOS' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-panel)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)', gap: '2px' }}>
+            {['ALL', 'RAW', 'EDITED'].map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                style={{ padding: '6px 14px', borderRadius: '7px', border: 'none', background: filter === f ? 'var(--bg-panel-muted)' : 'transparent', color: filter === f ? 'var(--brand-primary)' : 'var(--text-main)', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}>
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
           <Loader2 size={40} color="var(--brand-primary)" className="animate-spin" />
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-          {filtered.map(rec => (
-            <div key={rec.id}
-              style={{ background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s', cursor: 'pointer' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
-              {/* Thumbnail */}
-              <div style={{ position: 'relative', aspectRatio: '16/9', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <video src={rec.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.55 }} />
-                <div style={{ position: 'absolute', top: '10px', right: '10px', padding: '3px 8px', background: 'rgba(0,0,0,0.6)', borderRadius: '5px', color: '#fff', fontSize: '10px', fontWeight: '800', backdropFilter: 'blur(4px)' }}>
-                  {rec.media_type || 'RAW'}
-                </div>
-                <button onClick={() => setEditing(rec)}
-                  style={{ position: 'absolute', width: '44px', height: '44px', borderRadius: '50%', background: 'var(--brand-primary)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                  <Play size={20} fill="#fff" />
-                </button>
-              </div>
-              {/* Meta */}
-              <div style={{ padding: '16px' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: '800', marginBottom: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rec.title}</h3>
-                <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={11} />{new Date(rec.created_at).toLocaleDateString()}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} />{new Date(rec.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+          {category === 'TACTICS' ? (
+            savedTeams.map(team => (
+              <TacticCard 
+                key={team.id} 
+                team={team} 
+                onLoad={handleLoadBoard} 
+                onDelete={deleteSavedTeam} 
+              />
+            ))
+          ) : (
+            filteredVideos.map(rec => (
+              <div key={rec.id}
+                style={{ background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s', cursor: 'pointer' }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                {/* Thumbnail */}
+                <div style={{ position: 'relative', aspectRatio: '16/9', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <video src={rec.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.55 }} />
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', padding: '3px 8px', background: 'rgba(0,0,0,0.6)', borderRadius: '5px', color: '#fff', fontSize: '10px', fontWeight: '800', backdropFilter: 'blur(4px)' }}>
+                    {rec.media_type || 'RAW'}
+                  </div>
                   <button onClick={() => setEditing(rec)}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '11px', cursor: 'pointer' }}>
-                    <Scissors size={12} /> Edit
-                  </button>
-                  <button onClick={async (e) => { e.stopPropagation(); if (confirm('Delete this recording?')) { try { await deleteRecording(rec.id); handleDelete(rec.id); } catch { alert('Delete failed'); } } }}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: '#ff4d4d', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Trash2 size={13} />
+                    style={{ position: 'absolute', width: '44px', height: '44px', borderRadius: '50%', background: 'var(--brand-primary)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                    <Play size={20} fill="#fff" />
                   </button>
                 </div>
+                {/* Meta */}
+                <div style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '13px', fontWeight: '800', marginBottom: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rec.title}</h3>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={11} />{new Date(rec.created_at).toLocaleDateString()}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} />{new Date(rec.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => setEditing(rec)}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '11px', cursor: 'pointer' }}>
+                      <Scissors size={12} /> Edit
+                    </button>
+                    <button onClick={async (e) => { e.stopPropagation(); if (confirm('Delete this recording?')) { try { await deleteRecording(rec.id); handleDeleteRecording(rec.id); } catch { alert('Delete failed'); } } }}
+                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: '#ff4d4d', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
 
-          {filtered.length === 0 && !loading && (
+          {category === 'TACTICS' && savedTeams.length === 0 && !loading && (
+            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '100px', background: 'var(--bg-panel)', borderRadius: '20px', border: '1px dashed var(--border-color)', opacity: 0.4 }}>
+              <Layout size={40} style={{ marginBottom: '12px' }} />
+              <p style={{ fontSize: '14px', fontWeight: '600' }}>No saved tactics yet.</p>
+            </div>
+          )}
+
+          {category === 'VIDEOS' && filteredVideos.length === 0 && !loading && (
             <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '100px', background: 'var(--bg-panel)', borderRadius: '20px', border: '1px dashed var(--border-color)', opacity: 0.4 }}>
               <Video size={40} style={{ marginBottom: '12px' }} />
-              <p style={{ fontSize: '14px', fontWeight: '600' }}>No recordings found in this category.</p>
+              <p style={{ fontSize: '14px', fontWeight: '600' }}>No recordings found.</p>
             </div>
           )}
         </div>

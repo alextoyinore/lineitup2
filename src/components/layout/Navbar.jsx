@@ -2,9 +2,10 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ThemeToggler from '../ThemeToggler';
-import { ShieldAlert, LayoutDashboard, LogOut, User, Layout, Library, Settings as SettingsIcon, ChevronRight } from 'lucide-react';
+import { ShieldAlert, LayoutDashboard, LogOut, User, Layout, Library, Settings as SettingsIcon, ChevronRight, Menu } from 'lucide-react';
+import clsx from 'clsx';
 
-const Navbar = () => {
+const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith('/admin');
@@ -47,6 +48,28 @@ const Navbar = () => {
       WebkitBackdropFilter: 'blur(10px)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+        {/* Mobile Sidebar Toggle */}
+        {isStudioPath && (
+          <button 
+            onClick={onMenuClick}
+            className="mobile-menu-toggle"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--text-main)', 
+              cursor: 'pointer',
+              padding: '8px',
+              borderRadius: '8px',
+              marginLeft: '-8px'
+            }}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', color: 'var(--text-main)' }}>
           <div style={{ width: '32px', height: '32px', background: 'var(--brand-primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(29, 158, 74, 0.3)' }}>
             <ShieldAlert size={18} color="#fff" />

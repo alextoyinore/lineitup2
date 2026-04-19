@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Camera, Video, SquareSquare, MousePointer2, ArrowUpRight, Pencil, Eraser, MoveUpRight, Circle, Highlighter, Save, Trash2, Layout, Library, Settings as SettingsIcon, ShieldAlert, LogOut, User, LayoutDashboard, ChevronRight, Sun, Moon } from 'lucide-react';
 import { formationKeys } from '../utils/formations';
 import clsx from 'clsx';
@@ -41,10 +41,22 @@ const ControlsPanel = ({
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const isOnBoard = location.pathname === '/studio' || location.pathname === '/';
 
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef(null);
   const [newTeamName, setNewTeamName] = useState('');
+
+  const handleSelectTeam = (team) => {
+    if (!isOnBoard) {
+      navigate('/studio');
+      // Give the navigation a moment to complete before loading the data
+      setTimeout(() => onLoadTeam(team), 50);
+    } else {
+      onLoadTeam(team);
+    }
+  };
 
   const handleScroll = () => {
     setIsScrolling(true);
@@ -246,7 +258,7 @@ const ControlsPanel = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '150px', overflowY: 'auto' }}>
           {savedTeams?.map(team => (
             <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--bg-panel-muted)', borderRadius: '7px', border: '1px solid var(--border-color)' }}>
-              <div onClick={() => onLoadTeam(team)} style={{ cursor: 'pointer', flex: 1 }}>
+              <div onClick={() => handleSelectTeam(team)} style={{ cursor: 'pointer', flex: 1 }}>
                 <div style={{ fontWeight: '700', fontSize: '11px' }}>{team.name}</div>
                 <div style={{ fontSize: '10px', opacity: 0.45 }}>{team.home_formation}</div>
               </div>
