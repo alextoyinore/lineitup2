@@ -209,10 +209,10 @@ app.get('/api/global/teams', (req, res) => {
 
 app.post('/api/global/teams', authenticateToken, isAdmin, (req, res) => {
   try {
-    const { name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation } = req.body;
+    const { name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation, primary_color, secondary_color } = req.body;
     const id = uuidv4();
-    db.prepare(`INSERT INTO global_teams (id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation || '4-3-3');
+    db.prepare(`INSERT INTO global_teams (id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation, primary_color, secondary_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation || '4-3-3', primary_color || '#E63946', secondary_color || '#1D3557');
     res.json({ success: true, id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -221,9 +221,9 @@ app.post('/api/global/teams', authenticateToken, isAdmin, (req, res) => {
 
 app.put('/api/global/teams/:id', authenticateToken, isAdmin, (req, res) => {
   try {
-    const { name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation } = req.body;
-    db.prepare(`UPDATE global_teams SET name=?, league_id=?, logo_url=?, stadium_name=?, city=?, manager_name=?, foundation_year=?, stadium_image_url=?, location_map_url=?, default_formation=? WHERE id=?`)
-      .run(name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation, req.params.id);
+    const { name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation, primary_color, secondary_color } = req.body;
+    db.prepare(`UPDATE global_teams SET name=?, league_id=?, logo_url=?, stadium_name=?, city=?, manager_name=?, foundation_year=?, stadium_image_url=?, location_map_url=?, default_formation=?, primary_color=?, secondary_color=? WHERE id=?`)
+      .run(name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation, primary_color, secondary_color, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

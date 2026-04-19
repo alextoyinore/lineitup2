@@ -50,27 +50,36 @@ const TeamDetail = () => {
     }
   };
 
-  const handleSwap = async (player1, player2) => {
-    if (!player1 || !player2 || player1.id === player2.id) return;
+  const handleSwap = async (p1, p2) => {
+    if (!p1 || !p2 || p1.id === p2.id) return;
+    
+    console.log(`Swapping ${p1.name} (Role: ${p1.is_starting}) with ${p2.name} (Role: ${p2.is_starting})`);
     
     try {
-      // Toggle roles
-      const role1 = player1.is_starting;
-      const role2 = player2.is_starting;
+      // Toggle roles: p1 gets p2's role, p2 gets p1's role
+      const r1 = p1.is_starting;
+      const r2 = p2.is_starting;
       
+      // Perform updates in parallel
       await Promise.all([
-        updateGlobalPlayer(player1.id, { ...player1, is_starting: role2 }),
-        updateGlobalPlayer(player2.id, { ...player2, is_starting: role1 })
+        updateGlobalPlayer(p1.id, { ...p1, is_starting: r2 }),
+        updateGlobalPlayer(p2.id, { ...p2, is_starting: r1 })
       ]);
       
+      console.log('Swap successful on server');
       setSubSwapSource(null);
-      loadData();
-    } catch { alert('Swap failed'); }
+      await loadData(); // Refresh roster from DB
+    } catch (err) { 
+      console.error('Swap failed:', err);
+      alert('Swap failed. Check server connection.'); 
+    }
   };
 
   const handlePlayerClick = (player) => {
     if (!subSwapSource) {
       setSubSwapSource(player);
+    } else if (subSwapSource.id === player.id) {
+      setSubSwapSource(null);
     } else {
       handleSwap(subSwapSource, player);
     }
@@ -263,15 +272,16 @@ const TeamDetail = () => {
                   };
 
                   return (
-                    <tr key={player.id} 
+                    <tr 
+                      key={player.id} 
                       onClick={() => !isEditing && handlePlayerClick(player)}
                       style={{ 
-                        background: isSelected ? 'rgba(29,158,74,0.1)' : (idx % 2 === 0 ? 'transparent' : 'var(--bg-panel-muted)'), 
                         borderBottom: '1px solid var(--border-color)', 
-                        height: '40px',
+                        transition: 'all 0.2s',
                         cursor: isEditing ? 'default' : 'pointer',
-                        transition: 'background 0.2s'
+                        background: subSwapSource?.id === player.id ? 'rgba(29,158,74,0.1)' : (idx % 2 === 0 ? 'transparent' : 'var(--bg-panel-muted)')
                       }}
+                      className="hover-row"
                     >
                       <td style={{ padding: '4px 16px', fontWeight: '700', color: 'var(--text-muted)' }}>{(currentPage - 1) * playersPerPage + idx + 1}</td>
                       <td style={{ padding: '4px 16px', fontWeight: '800', color: 'var(--brand-primary)' }}>
@@ -348,21 +358,61 @@ const TeamDetail = () => {
 
         {/* Formation Preview Side */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-color)' }}>
-            <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Default Formation</label>
-            <select 
-              value={team.default_formation || '4-3-3'} 
-              onChange={(e) => updateFormation(e.target.value)}
-              style={{ ...inputStyle, width: '100%', height: '36px', fontSize: '13px', fontWeight: '700' }}
-            >
-              {formationKeys.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
+          <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Default Formation</label>
+              <select 
+                value={team.default_formation || '4-3-3'} 
+                onChange={(e) => updateFormation(e.target.value)}
+                style={{ ...inputStyle, width: '100%', height: '36px', fontSize: '13px', fontWeight: '700' }}
+              >
+                {formationKeys.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Primary Color</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input 
+                    type="color" 
+                    value={team.primary_color || '#E63946'} 
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      const updated = { ...team, primary_color: val };
+                      setTeam(updated);
+                      await updateGlobalTeam(id, updated);
+                    }}
+                    style={{ width: '36px', height: '36px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }} 
+                  />
+                  <span style={{ fontSize: '11px', fontWeight: '700', fontFamily: 'monospace' }}>{team.primary_color || '#E63946'}</span>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '10px', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Away Color</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input 
+                    type="color" 
+                    value={team.secondary_color || '#1D3557'} 
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      const updated = { ...team, secondary_color: val };
+                      setTeam(updated);
+                      await updateGlobalTeam(id, updated);
+                    }}
+                    style={{ width: '36px', height: '36px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }} 
+                  />
+                  <span style={{ fontSize: '11px', fontWeight: '700', fontFamily: 'monospace' }}>{team.secondary_color || '#1D3557'}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <FormationPreview 
             formationKey={team.default_formation || '4-3-3'} 
             players={players} 
             onSwap={handlePlayerClick}
+            primaryColor={team.primary_color}
           />
           
           <div style={{ background: 'rgba(29,158,74,0.05)', borderRadius: '12px', padding: '12px', border: '1px solid rgba(29,158,74,0.1)' }}>

@@ -3,13 +3,13 @@ import { formations } from '../../utils/formations';
 
 const JERSEY_PATH = "M 9 2 Q 12 5 15 2 L 20 3 L 23 8 L 19 11 L 17 8 L 17 22 L 7 22 L 7 8 L 5 11 L 1 8 L 4 3 Z";
 
-const FormationPreview = ({ formationKey, players, onSwap }) => {
+const FormationPreview = ({ formationKey, players, onSwap, primaryColor }) => {
   const formation = formations[formationKey] || formations['4-3-3'];
   const starters = players.filter(p => p.is_starting === 1);
 
-  // Intelligent mapping: Match players to formation slots by role
+  // Intelligent mapping: Match players to formation slots by role, prioritize high OVR
   const mappedPlayers = Array(11).fill(null);
-  const unmappedStarters = [...starters];
+  const unmappedStarters = [...starters].sort((a, b) => (b.grade || 0) - (a.grade || 0));
 
   // Pass 1: Exact matches or contains
   formation.forEach((slot, slotIdx) => {
@@ -85,7 +85,7 @@ const FormationPreview = ({ formationKey, players, onSwap }) => {
               <svg viewBox="0 0 24 24" style={{ width: '40px', height: '40px', filter: player ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))' : 'none' }}>
                 <path 
                   d={JERSEY_PATH} 
-                  fill={player ? 'var(--brand-primary)' : 'rgba(255,255,255,0.03)'} 
+                  fill={player ? (primaryColor || 'var(--brand-primary)') : 'rgba(255,255,255,0.03)'} 
                   stroke={player ? '#fff' : 'rgba(255,255,255,0.15)'}
                   strokeWidth={player ? '1.2' : '0.8'}
                   strokeDasharray={player ? '0' : '2,1'}

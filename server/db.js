@@ -38,6 +38,8 @@ db.exec(`
     manager_name TEXT,
     foundation_year INTEGER,
     default_formation TEXT,
+    primary_color TEXT DEFAULT '#E63946',
+    secondary_color TEXT DEFAULT '#1D3557',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -111,6 +113,12 @@ try {
 } catch (e) {}
 try {
   db.exec('ALTER TABLE global_teams ADD COLUMN default_formation TEXT');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE global_teams ADD COLUMN primary_color TEXT DEFAULT "#E63946"');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE global_teams ADD COLUMN secondary_color TEXT DEFAULT "#1D3557"');
 } catch (e) {}
 try {
   db.exec('ALTER TABLE global_players ADD COLUMN avatar_url TEXT');

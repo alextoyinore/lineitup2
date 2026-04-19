@@ -19,7 +19,7 @@ function TacticsBoard() {
     homeFormation, setHomeFormation,
     awayFormation, setAwayFormation,
     isDualTeamMode, setIsDualTeamMode,
-    teamColors, setTeamColors,
+    teamColors, setTeamColors, updateTeamColor,
     players, setPlayers, updatePlayer,
     drawings, setDrawings,
     recordings, globalTeams,
@@ -53,6 +53,18 @@ function TacticsBoard() {
     try {
       const globalPlayers = await fetchGlobalPlayers(teamId);
       
+      // Apply team defaults if available
+      const team = globalTeams.find(t => t.id === teamId);
+      if (team) {
+        if (forTeam === 'home') {
+          if (team.default_formation) setHomeFormation(team.default_formation);
+          if (team.primary_color) updateTeamColor('home', team.primary_color);
+        } else {
+          if (team.default_formation) setAwayFormation(team.default_formation);
+          if (team.primary_color) updateTeamColor('away', team.primary_color);
+        }
+      }
+
       let availablePlayers = globalPlayers.filter(gp => gp.is_starting >= 0);
       
       const starters = availablePlayers.filter(gp => Number(gp.is_starting) === 1).sort((a, b) => (Number(b.grade) || 0) - (Number(a.grade) || 0));

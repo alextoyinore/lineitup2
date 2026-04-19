@@ -242,7 +242,7 @@ const ControlsPanel = ({
             
             <MovementPad 
               title="Home Team" 
-              onMove={(dx, dy) => movePlayers(players.filter(p => p.team === 'home').map(p => p.id), dx, dy)} 
+              onMove={(dx, dy) => movePlayers(players.filter(p => p.team === 'home' && p.relativeY <= 90).map(p => p.id), dx, dy)} 
             />
 
             {isDualTeamMode && (
@@ -250,7 +250,7 @@ const ControlsPanel = ({
                 <div style={{ height: '1px', background: 'var(--border-color)', opacity: 0.1 }} />
                 <MovementPad 
                   title="Away Team" 
-                  onMove={(dx, dy) => movePlayers(players.filter(p => p.team === 'away').map(p => p.id), dx, dy)} 
+                  onMove={(dx, dy) => movePlayers(players.filter(p => p.team === 'away' && p.relativeY <= 90).map(p => p.id), dx, dy)} 
                 />
               </>
             )}
