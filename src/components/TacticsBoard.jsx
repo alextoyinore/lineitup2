@@ -30,7 +30,8 @@ function TacticsBoard() {
     awayTeamId, setAwayTeamId,
     loadTeam, currentTeamId, setCurrentTeamId,
     deleteSavedTeam,
-    selectedPlayerIds, togglePlayerSelection, clearSelection, movePlayers
+    selectedPlayerIds, togglePlayerSelection, clearSelection, movePlayers,
+    ball, setBall
   } = useTactics();
 
   const pitchRef = useRef(null);
@@ -141,6 +142,7 @@ function TacticsBoard() {
       team_colors: teamColors,
       ui_config: uiConfig,
       players,
+      ball,
       drawings
     };
 
@@ -320,6 +322,8 @@ function TacticsBoard() {
             selectedPlayerIds={selectedPlayerIds}
             togglePlayerSelection={togglePlayerSelection}
             clearSelection={clearSelection}
+            ball={ball}
+            updateBall={setBall}
           />
         </div>
 

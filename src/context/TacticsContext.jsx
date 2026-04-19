@@ -25,7 +25,8 @@ export const TacticsProvider = ({ children }) => {
       positionBadgeOpacity: 0.8,
       textHasShadow: true,
       showSubsArea: false,
-      zoneHasFill: true
+      zoneHasFill: true,
+      showBall: false
     };
     if (saved) {
       try {
@@ -59,6 +60,7 @@ export const TacticsProvider = ({ children }) => {
   const [homeTeamId, setHomeTeamId] = useState(null);
   const [awayTeamId, setAwayTeamId] = useState(null);
   const [currentTeamId, setCurrentTeamId] = useState(null);
+  const [ball, setBall] = useState({ relativeX: 50, relativeY: 50 });
 
   // --- Selection State ---
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
@@ -73,6 +75,7 @@ export const TacticsProvider = ({ children }) => {
     let pAway = isDualTeamMode ? generatePlayers(awayFormation, false, uiConfig.showSubsArea) : [];
     setPlayers([...pHome, ...pAway]);
     setDrawings([]);
+    setBall({ relativeX: 50, relativeY: 50 });
     setHomeTeamId(null);
     setAwayTeamId(null);
   }, [homeFormation, awayFormation, isDualTeamMode, uiConfig.showSubsArea]);
@@ -217,6 +220,7 @@ export const TacticsProvider = ({ children }) => {
     setUiConfig(team.ui_config);
     setPlayers(team.players);
     setDrawings(team.drawings);
+    if (team.ball) setBall(team.ball);
   }, []);
 
   const deleteSavedTeam = useCallback(async (id) => {
@@ -251,6 +255,7 @@ export const TacticsProvider = ({ children }) => {
     deleteSavedTeam,
     currentTeamId, setCurrentTeamId,
     selectedPlayerIds, setSelectedPlayerIds,
+    ball, setBall,
     movePlayers, togglePlayerSelection, clearSelection
   };
 

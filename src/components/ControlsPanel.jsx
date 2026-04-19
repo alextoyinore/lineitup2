@@ -49,12 +49,12 @@ const ControlsPanel = ({
   const scrollTimeoutRef = useRef(null);
   const [newTeamName, setNewTeamName] = useState('');
   const [expandedSections, setExpandedSections] = useState({
-    tools: true,
-    roster: true,
-    formations: true,
-    session: true,
-    movement: true,
-    library: true
+    tools: false,
+    roster: false,
+    formations: false,
+    session: false,
+    movement: false,
+    library: false
   });
 
   const handleSelectTeam = (team) => {
@@ -206,17 +206,31 @@ const ControlsPanel = ({
                 <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>Ink:</span>
                 <ColorPicker color={inkColor} onChange={setInkColor} />
               </div>
-              <button 
-                onClick={() => setDrawings([])} 
-                title="Clear All" 
-                style={{ 
-                  padding: '6px 12px', borderRadius: '8px', border: '1px solid #ef444422', 
-                  background: '#ef444411', color: '#ef4444', cursor: 'pointer', 
-                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: '800' 
-                }}
-              >
-                <Eraser size={14} /> CLEAR
-              </button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button 
+                  onClick={() => updateUiConfig('showBall', !uiConfig.showBall)} 
+                  style={{ 
+                    height: '28px', padding: '0 10px', borderRadius: '8px', border: '1px solid',
+                    borderColor: uiConfig.showBall ? 'var(--brand-primary)' : 'var(--border-color)',
+                    background: uiConfig.showBall ? 'rgba(29,158,74,0.1)' : 'transparent',
+                    color: uiConfig.showBall ? 'var(--brand-primary)' : 'var(--text-muted)',
+                    cursor: 'pointer', fontSize: '9px', fontWeight: '800'
+                  }}
+                >
+                  BALL
+                </button>
+                <button 
+                  onClick={() => setDrawings([])} 
+                  title="Clear All" 
+                  style={{ 
+                    height: '28px', padding: '0 10px', borderRadius: '8px', border: '1px solid #ef444422', 
+                    background: '#ef444411', color: '#ef4444', cursor: 'pointer', 
+                    display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontWeight: '800' 
+                  }}
+                >
+                  <Eraser size={12} /> CLEAR
+                </button>
+              </div>
             </div>
           </div>
         )}

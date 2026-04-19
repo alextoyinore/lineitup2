@@ -199,6 +199,75 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
   );
 };
 
+const BallNode = ({ ball, width, height, ui, updateBall, currentTool, isRecording }) => {
+  const groupRef = useRef(null);
+  const isVertical = ui.orientation === 'vertical';
+  
+  const absoluteX = isVertical ? (ball.relativeY / 100) * width : (ball.relativeX / 100) * width;
+  const absoluteY = isVertical ? ((100 - ball.relativeX) / 100) * height : (ball.relativeY / 100) * height;
+
+  useEffect(() => {
+    if (groupRef.current) {
+      groupRef.current.to({
+        x: absoluteX,
+        y: absoluteY,
+        duration: 0.3,
+        easing: Konva.Easings.EaseInOut
+      });
+    }
+  }, [absoluteX, absoluteY]);
+
+  const ballSize = Math.min(width, height) * 0.012;
+  const isInteractive = currentTool === 'pointer';
+
+  const handleDragEnd = (e) => {
+    const newRelativeX = isVertical ? 100 - (e.target.y() / height) * 100 : (e.target.x() / width) * 100;
+    const newRelativeY = isVertical ? (e.target.x() / width) * 100 : (e.target.y() / height) * 100;
+    updateBall({ relativeX: newRelativeX, relativeY: newRelativeY });
+  };
+
+  return (
+    <Group
+      ref={groupRef}
+      x={absoluteX}
+      y={absoluteY}
+      draggable={isInteractive}
+      onDragEnd={handleDragEnd}
+      onMouseEnter={(e) => { if (isInteractive && !isRecording) e.target.getStage().container().style.cursor = 'grab'; }}
+      onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
+    >
+      <Circle
+        radius={ballSize}
+        fill="#FFFFFF"
+        stroke="#000"
+        strokeWidth={0.5}
+        shadowBlur={6}
+        shadowOpacity={0.4}
+      />
+      {/* Soccer Ball Pattern (Pentagons) */}
+      {[0, 72, 144, 216, 288].map(rot => (
+        <Path 
+          key={rot}
+          data="M 0 -1 L 0.95 -0.31 L 0.59 0.81 L -0.59 0.81 L -0.95 -0.31 Z"
+          fill="#000"
+          scaleX={ballSize * 0.4}
+          scaleY={ballSize * 0.4}
+          rotation={rot}
+          y={-ballSize * 0.6}
+        />
+      ))}
+      <Path 
+        data="M 0 -1 L 0.95 -0.31 L 0.59 0.81 L -0.59 0.81 L -0.95 -0.31 Z"
+        fill="#000"
+        scaleX={ballSize * 0.45}
+        scaleY={ballSize * 0.45}
+      />
+      {/* Outer seam */}
+      <Circle radius={ballSize} stroke="#000" strokeWidth={0.2} opacity={0.2} />
+    </Group>
+  );
+};
+
 const CameraFeed = ({ stream, width, height }) => {
   const imageRef = useRef(null);
   const videoRef = useRef(null);
@@ -252,7 +321,7 @@ const CameraFeed = ({ stream, width, height }) => {
 
 
 const Pitch = React.forwardRef(({ 
-  players, updatePlayer, isRecording, teamColors, ui, currentTool, inkColor, drawings, setDrawings, cameraStream,
+  players, updatePlayer, ball, updateBall, isRecording, teamColors, ui, currentTool, inkColor, drawings, setDrawings, cameraStream,
   selectedPlayerIds = [], togglePlayerSelection, clearSelection
 }, ref) => {
   const containerRef = useRef(null);
@@ -637,6 +706,18 @@ const Pitch = React.forwardRef(({
                 );
               })}
             </Group>
+          )}
+
+          {ui.showBall && ball && (
+            <BallNode 
+              ball={ball} 
+              width={width} 
+              height={height} 
+              ui={ui}
+              updateBall={updateBall}
+              currentTool={currentTool}
+              isRecording={isRecording}
+            />
           )}
 
           {players.filter(p => ui.showSubsArea || p.relativeY <= 90).map(player => (
