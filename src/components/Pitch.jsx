@@ -201,11 +201,13 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
 
 const BallNode = ({ ball, width, height, ui, updateBall, currentTool, isRecording }) => {
   const groupRef = useRef(null);
+  const [trailPoints, setTrailPoints] = useState([]); // Array of {x, y, id, age}
   const isVertical = ui.orientation === 'vertical';
   
   const absoluteX = isVertical ? (ball.relativeY / 100) * width : (ball.relativeX / 100) * width;
   const absoluteY = isVertical ? ((100 - ball.relativeX) / 100) * height : (ball.relativeY / 100) * height;
 
+  // Animation to follow absolute position changes
   useEffect(() => {
     if (groupRef.current) {
       groupRef.current.to({
@@ -217,6 +219,34 @@ const BallNode = ({ ball, width, height, ui, updateBall, currentTool, isRecordin
     }
   }, [absoluteX, absoluteY]);
 
+  // Trail Logic: Poll position and manage fading segments
+  useEffect(() => {
+    let lastPos = { x: absoluteX, y: absoluteY };
+    const maxTrailAge = 35; // slightly shorter for more punch
+    
+    const anim = new Konva.Animation(() => {
+      if (!groupRef.current) return;
+      const curX = groupRef.current.x();
+      const curY = groupRef.current.y();
+      
+      const dist = Math.sqrt(Math.pow(curX - lastPos.x, 2) + Math.pow(curY - lastPos.y, 2));
+      
+      setTrailPoints(prev => {
+        let next = prev.map(p => ({ ...p, age: p.age + 1 })).filter(p => p.age < maxTrailAge);
+        
+        // High frequency sampling for smooth taper
+        if (dist > 1) {
+          next.push({ x: curX, y: curY, id: Math.random(), age: 0 });
+          lastPos = { x: curX, y: curY };
+        }
+        return next;
+      });
+    }, groupRef.current.getLayer());
+
+    anim.start();
+    return () => anim.stop();
+  }, [width, height]);
+
   const ballSize = Math.min(width, height) * 0.012;
   const isInteractive = currentTool === 'pointer';
 
@@ -227,44 +257,65 @@ const BallNode = ({ ball, width, height, ui, updateBall, currentTool, isRecordin
   };
 
   return (
-    <Group
-      ref={groupRef}
-      x={absoluteX}
-      y={absoluteY}
-      draggable={isInteractive}
-      onDragEnd={handleDragEnd}
-      onMouseEnter={(e) => { if (isInteractive && !isRecording) e.target.getStage().container().style.cursor = 'grab'; }}
-      onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
-    >
-      <Circle
-        radius={ballSize}
-        fill="#FFFFFF"
-        stroke="#000"
-        strokeWidth={0.5}
-        shadowBlur={6}
-        shadowOpacity={0.4}
-      />
-      {/* Soccer Ball Pattern (Pentagons) */}
-      {[0, 72, 144, 216, 288].map(rot => (
+    <>
+      {/* Tapered Trail using overlapping circles */}
+      {trailPoints.map((p, i) => {
+        // Taper effect: Exponential scaling based on age
+        // age 0 (ball) = large, age 35 (tail) = tiny
+        const ratio = 1 - (p.age / 35);
+        const radius = (ballSize * 1.3) * Math.pow(ratio, 1.5);
+        const opacity = 0.5 * ratio;
+        
+        return (
+          <Circle 
+            key={p.id}
+            x={p.x}
+            y={p.y}
+            radius={radius}
+            fill="#FFD700"
+            opacity={opacity}
+          />
+        );
+      })}
+
+      <Group
+        ref={groupRef}
+        x={absoluteX}
+        y={absoluteY}
+        draggable={isInteractive}
+        onDragEnd={handleDragEnd}
+        onMouseEnter={(e) => { if (isInteractive && !isRecording) e.target.getStage().container().style.cursor = 'grab'; }}
+        onMouseLeave={(e) => { e.target.getStage().container().style.cursor = 'default'; }}
+      >
+        <Circle
+          radius={ballSize}
+          fill="#FFFFFF"
+          stroke="#000"
+          strokeWidth={0.5}
+          shadowBlur={6}
+          shadowOpacity={0.4}
+        />
+        {/* Soccer Ball Pattern (Pentagons) */}
+        {[0, 72, 144, 216, 288].map(rot => (
+          <Path 
+            key={rot}
+            data="M 0 -1 L 0.95 -0.31 L 0.59 0.81 L -0.59 0.81 L -0.95 -0.31 Z"
+            fill="#000"
+            scaleX={ballSize * 0.4}
+            scaleY={ballSize * 0.4}
+            rotation={rot}
+            y={-ballSize * 0.6}
+          />
+        ))}
         <Path 
-          key={rot}
           data="M 0 -1 L 0.95 -0.31 L 0.59 0.81 L -0.59 0.81 L -0.95 -0.31 Z"
           fill="#000"
-          scaleX={ballSize * 0.4}
-          scaleY={ballSize * 0.4}
-          rotation={rot}
-          y={-ballSize * 0.6}
+          scaleX={ballSize * 0.45}
+          scaleY={ballSize * 0.45}
         />
-      ))}
-      <Path 
-        data="M 0 -1 L 0.95 -0.31 L 0.59 0.81 L -0.59 0.81 L -0.95 -0.31 Z"
-        fill="#000"
-        scaleX={ballSize * 0.45}
-        scaleY={ballSize * 0.45}
-      />
-      {/* Outer seam */}
-      <Circle radius={ballSize} stroke="#000" strokeWidth={0.2} opacity={0.2} />
-    </Group>
+        <Circle radius={ballSize} stroke="#000" strokeWidth={0.2} opacity={0.2} />
+      </Group>
+    </>
   );
 };
 
