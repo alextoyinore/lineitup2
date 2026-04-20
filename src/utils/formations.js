@@ -110,13 +110,17 @@ export const formations = {
 };
 
 // Generates the players array for a given formation and team type
-export function generatePlayers(formationKey, isHome, generateSubs = false) {
+export function generatePlayers(formationKey, isHome, generateSubs = false, isSecondHalf = false) {
   const baseForm = formations[formationKey];
   if (!baseForm) return [];
 
+  // In second half, sides are switched (180 degree rotation)
+  const effectiveIsHome = isSecondHalf ? !isHome : isHome;
+
   let players = baseForm.map(p => {
-    // Away team has mirrored X coordinates
-    const actualX = isHome ? p.x : 100 - p.x;
+    const actualX = effectiveIsHome ? p.x : 100 - p.x;
+    const actualY = effectiveIsHome ? p.y : 100 - p.y;
+    
     return {
       id: `${isHome ? 'home' : 'away'}-${p.id}`,
       number: p.id,
@@ -124,14 +128,14 @@ export function generatePlayers(formationKey, isHome, generateSubs = false) {
       name: p.role,
       team: isHome ? 'home' : 'away',
       relativeX: actualX,
-      relativeY: p.y
+      relativeY: actualY
     };
   });
 
   if (generateSubs) {
     for (let i = 1; i <= 7; i++) {
       const subId = 11 + i;
-      // Start Subs along the bottom touchline, spaced out depending on team
+      // Start Subs along the bottom touchline
       const subX = isHome ? 8 + (i * 5) : 92 - (i * 5);
       players.push({
         id: `${isHome ? 'home' : 'away'}-${subId}`,
@@ -140,7 +144,7 @@ export function generatePlayers(formationKey, isHome, generateSubs = false) {
         name: 'Bench',
         team: isHome ? 'home' : 'away',
         relativeX: subX,
-        relativeY: 92 // Sit on the bottom bench edge
+        relativeY: 92 
       });
     }
   }

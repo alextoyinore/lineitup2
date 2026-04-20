@@ -36,6 +36,7 @@ const ControlsPanel = ({
     resetPitch,
     homeTeamId, setHomeTeamId,
     awayTeamId, setAwayTeamId,
+    matchHalf, setMatchHalf,
     movePlayers, selectedPlayerIds, players, clearSelection
   } = useTactics();
 
@@ -423,6 +424,24 @@ const ControlsPanel = ({
               {isRecording ? <SquareSquare size={14} /> : <Video size={14} />}
               {isRecording ? 'Stop Recording' : 'Start Recording'}
             </button>
+
+            {/* Match Half Toggle */}
+            <div style={{ display: 'flex', background: 'var(--bg-panel-muted)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '4px' }}>
+              {[1, 2].map(h => (
+                <button 
+                  key={h}
+                  onClick={() => setMatchHalf(h)}
+                  style={{ 
+                    flex: 1, padding: '6px 0', border: 'none', borderRadius: '7px', cursor: 'pointer',
+                    fontSize: '9px', fontWeight: '800', transition: 'all 0.15s',
+                    background: matchHalf === h ? 'var(--brand-primary)' : 'transparent',
+                    color: matchHalf === h ? '#fff' : 'var(--text-muted)'
+                  }}
+                >
+                  {h === 1 ? '1ST HALF' : '2ND HALF'}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

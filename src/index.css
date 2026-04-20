@@ -52,3 +52,22 @@ button {
   border: 1px solid var(--border-color);
   border-radius: 0px;
 }
+
+/* Minimal Scrollbars - Hidden until hovered */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted) !important;
+}

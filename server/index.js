@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import db from './db.js';
+import fs from 'fs';
 import { register, login, authenticateToken, isAdmin } from './auth.js';
 
 const app = express();
@@ -11,11 +12,20 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('server/uploads'));
+app.use('/LineItUp', express.static('server/LineItUp'));
 
 // Multer Config for Video Uploads
 const storage = multer.diskStorage({
-  destination: 'server/uploads/',
+  destination: (req, file, cb) => {
+    // Determine subfolder based on media_type or fieldname
+    let sub = (req.body.media_type || 'raw').toLowerCase();
+    if (file.fieldname === 'image') sub = 'screenshots';
+    if (sub === 'edit') sub = 'edited'; // Consistency
+    
+    const dest = `server/LineItUp/${sub}/`;
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
+  },
   filename: (req, file, cb) => {
     cb(null, `${uuidv4()}${path.extname(file.originalname)}`);
   }
@@ -115,7 +125,8 @@ app.post('/api/recordings', authenticateToken, upload.single('video'), (req, res
   try {
     const id = uuidv4();
     const { title, duration, media_type = 'RAW' } = req.body;
-    const video_url = `/uploads/${req.file.filename}`;
+    const sub = media_type.toLowerCase() === 'edit' ? 'edited' : media_type.toLowerCase();
+    const video_url = `/LineItUp/${sub}/${req.file.filename}`;
     
     db.prepare('INSERT INTO recordings (id, owner_id, title, video_url, file_size, duration, media_type) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(id, req.user.id, title || 'Untitled Session', video_url, req.file.size, duration || 0, media_type);
@@ -150,7 +161,7 @@ app.patch('/api/recordings/:id', authenticateToken, (req, res) => {
 // Generic Image Upload
 app.post('/api/upload', authenticateToken, isAdmin, upload.single('image'), (req, res) => {
   try {
-    const url = `/uploads/${req.file.filename}`;
+    const url = `/LineItUp/screenshots/${req.file.filename}`;
     res.json({ success: true, url });
   } catch (err) {
     res.status(500).json({ error: err.message });

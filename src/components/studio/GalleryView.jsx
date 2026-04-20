@@ -4,7 +4,7 @@ import { useTactics } from '../../context/TacticsContext';
 import { deleteRecording, renameRecording, fetchRecordings } from '../../services/apiService';
 import {
   Video, Calendar, Clock, Play, Pause, Trash2, Scissors,
-  Download, Pencil, Check, X, ChevronLeft, SkipBack, SkipForward,
+  Download, ChevronLeft, ChevronRight,
   Volume2, Loader2, Layout, MousePointer2
 } from 'lucide-react';
 
@@ -18,281 +18,466 @@ const fmt = (s) => {
 
 /* ─── VideoEditor panel ─── */
 const VideoEditor = ({ rec, onClose, onDelete, onRename }) => {
+  // --- Refs ---
   const videoRef = useRef(null);
-  const timelineRef = useRef(null);
+  const canvasRef = useRef(null); // For export re-composition
+  const streamRef = useRef(null); // Live camera stream for cameo
+
+  // --- State ---
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [inPoint, setInPoint] = useState(0);
-  const [outPoint, setOutPoint] = useState(0);
-  const [dragging, setDragging] = useState(null); // 'in' | 'out' | 'playhead'
   const [trimming, setTrimming] = useState(false);
   const [title, setTitle] = useState(rec.title);
   const [editingTitle, setEditingTitle] = useState(false);
 
+  // --- Multi-Clip State ---
+  const [clips, setClips] = useState([
+    { id: 'c1', rec, in: 0, out: rec.duration || 10, speed: 1 }
+  ]);
+  const [selectedClipId, setSelectedClipId] = useState('c1');
+  
+  // --- Export & Cameo State ---
+  const [exportOrientation, setExportOrientation] = useState('landscape'); // 'landscape' | 'portrait'
+  const [videoRotation, setVideoRotation] = useState(0); // 0, 90, 180, 270
+  const [cameoConfig, setCameoConfig] = useState({
+    enabled: false,
+    x: 80, // % of width
+    y: 20, // % of height
+    size: 20, // % of width
+    rotation: 0
+  });
+
+  // --- Playback State ---
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isLooping, setIsLooping] = useState(false);
+
+  const activeClip = clips.find(c => c.id === selectedClipId) || clips[0];
+  const sequenceDuration = clips.reduce((acc, c) => acc + (c.out - c.in), 0);
+  
+  // Calculate global sequence time based on current video time and clip index
+  const getSequenceTime = () => {
+    const activeIdx = clips.findIndex(c => c.id === selectedClipId);
+    let time = 0;
+    for (let i = 0; i < activeIdx; i++) time += (clips[i].out - clips[i].in);
+    time += (currentTime - activeClip.in);
+    return time;
+  };
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const onMeta = () => { setDuration(v.duration); setOutPoint(v.duration); };
-    const onTime = () => setCurrentTime(v.currentTime);
-    const onEnded = () => setPlaying(false);
+    const onMeta = () => { 
+      if (duration === 0) {
+        setDuration(v.duration);
+        setClips(prev => prev.map(c => c.id === 'c1' ? { ...c, out: v.duration } : c));
+      }
+    };
+    const onTime = () => {
+      setCurrentTime(v.currentTime);
+      // Auto-play next clip logic
+      if (v.currentTime >= activeClip.out) {
+        const idx = clips.findIndex(c => c.id === selectedClipId);
+        if (idx < clips.length - 1) {
+          const next = clips[idx + 1];
+          setSelectedClipId(next.id);
+          v.currentTime = next.in;
+        } else if (isLooping) {
+          const first = clips[0];
+          setSelectedClipId(first.id);
+          v.currentTime = first.in;
+        } else {
+          v.pause();
+          setPlaying(false);
+        }
+      }
+    };
+    
     v.addEventListener('loadedmetadata', onMeta);
     v.addEventListener('timeupdate', onTime);
-    v.addEventListener('ended', onEnded);
-    return () => { v.removeEventListener('loadedmetadata', onMeta); v.removeEventListener('timeupdate', onTime); v.removeEventListener('ended', onEnded); };
-  }, []);
+    return () => { 
+      v.removeEventListener('loadedmetadata', onMeta); 
+      v.removeEventListener('timeupdate', onTime); 
+    };
+  }, [activeClip.in, activeClip.out, isLooping, duration, selectedClipId, clips]);
+
+  // Handle Camera Stream for Cameo
+  useEffect(() => {
+    if (cameoConfig.enabled && !streamRef.current) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(s => { streamRef.current = s; })
+        .catch(e => console.error('Cameo stream failed:', e));
+    }
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [cameoConfig.enabled]);
 
   const togglePlay = () => {
     const v = videoRef.current;
+    if (!v) return;
     if (playing) { v.pause(); setPlaying(false); }
     else {
-      if (v.currentTime >= outPoint) v.currentTime = inPoint;
-      v.play(); setPlaying(true);
+      if (v.currentTime >= activeClip.out) v.currentTime = activeClip.in;
+      v.play().then(() => setPlaying(true)).catch(e => console.error(e));
     }
   };
 
-  // Stop at outPoint
-  useEffect(() => {
-    if (playing && currentTime >= outPoint) {
-      videoRef.current?.pause();
-      setPlaying(false);
+  const step = (amount) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + amount));
     }
-  }, [currentTime, outPoint, playing]);
-
-  const getPct = (t) => duration ? (t / duration) * 100 : 0;
-
-  const handleTimelineMouseDown = (e, handle) => {
-    e.preventDefault();
-    setDragging(handle);
   };
 
-  const handleTimelineMouseMove = useCallback((e) => {
-    if (!dragging || !timelineRef.current) return;
-    const rect = timelineRef.current.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const t = pct * duration;
-    if (dragging === 'in') { setInPoint(Math.min(t, outPoint - 0.5)); videoRef.current.currentTime = t; }
-    else if (dragging === 'out') { setOutPoint(Math.max(t, inPoint + 0.5)); }
-    else if (dragging === 'playhead') { videoRef.current.currentTime = t; }
-  }, [dragging, duration, inPoint, outPoint]);
-
-  const handleMouseUp = useCallback(() => setDragging(null), []);
-
-  useEffect(() => {
-    window.addEventListener('mousemove', handleTimelineMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => { window.removeEventListener('mousemove', handleTimelineMouseMove); window.removeEventListener('mouseup', handleMouseUp); };
-  }, [handleTimelineMouseMove, handleMouseUp]);
-
-  const handleTimelineClick = (e) => {
-    if (dragging) return;
-    const rect = timelineRef.current.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    videoRef.current.currentTime = pct * duration;
-  };
-
-  /* Trim & Export — re-records from inPoint to outPoint then triggers download */
-  const handleTrimExport = async () => {
+  // --- Multi-Clip Methods ---
+  const handleSplitClip = () => {
     const v = videoRef.current;
-    if (!v || !duration) return;
+    if (!v) return;
+    const t = v.currentTime;
+    
+    setClips(prev => {
+      const idx = prev.findIndex(c => c.id === selectedClipId);
+      if (idx === -1) return prev;
+      const target = prev[idx];
+      
+      const clipA = { ...target, id: Math.random().toString(36).substr(2, 9), out: t };
+      const clipB = { ...target, id: Math.random().toString(36).substr(2, 9), in: t };
+      
+      const newClips = [...prev];
+      newClips.splice(idx, 1, clipA, clipB);
+      setSelectedClipId(clipB.id);
+      return newClips;
+    });
+  };
+
+  const handleMoveClip = (id, direction) => {
+    setClips(prev => {
+      const idx = prev.findIndex(c => c.id === id);
+      if (idx === -1) return prev;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      
+      const newClips = [...prev];
+      const [moved] = newClips.splice(idx, 1);
+      newClips.splice(newIdx, 0, moved);
+      return newClips;
+    });
+  };
+
+  const handleDeleteClip = (id) => {
+    if (clips.length <= 1) return;
+    setClips(prev => {
+      const filtered = prev.filter(c => c.id !== id);
+      if (selectedClipId === id) setSelectedClipId(filtered[0].id);
+      return filtered;
+    });
+  };
+
+  // --- Export Logic with Canvas Re-composition ---
+  const handleExport = async () => {
     setTrimming(true);
-    try {
-      const stream = v.captureStream();
-      const chunks = [];
-      const mr = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      mr.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${title}_trim_${fmt(inPoint)}-${fmt(outPoint)}.webm`;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        setTrimming(false);
-      };
-      v.currentTime = inPoint;
-      await new Promise(r => v.addEventListener('seeked', r, { once: true }));
-      v.play();
-      mr.start();
-      // Stop recording when we reach outPoint
-      const checkInterval = setInterval(() => {
-        if (v.currentTime >= outPoint) {
-          clearInterval(checkInterval);
-          v.pause();
-          mr.stop();
-        }
-      }, 100);
-    } catch (err) {
-      console.error(err);
-      alert('Could not trim video. Your browser may not support captureStream.');
-      setTrimming(false);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set resolution based on orientation
+    if (exportOrientation === 'landscape') {
+      canvas.width = 1920; canvas.height = 1080;
+    } else {
+      canvas.width = 1080; canvas.height = 1920;
     }
+
+    const stream = canvas.captureStream(30);
+    const chunks = [];
+    const mr = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+    mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    
+    mr.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${title}_${exportOrientation}_edit.webm`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTrimming(false);
+    };
+
+    mr.start();
+
+    // Stitching logic
+    for (const clip of clips) {
+      const v = videoRef.current;
+      v.src = clip.rec.video_url;
+      v.currentTime = clip.in;
+      await new Promise(r => v.onseeked = r);
+      v.play();
+
+      const drawFrame = () => {
+        if (v.paused || v.ended || v.currentTime >= clip.out) return;
+        
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Video Content
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((videoRotation * Math.PI) / 180);
+        
+        // After rotation, we need to decide the drawing dimensions.
+        // If we rotated 90 or 270, the dimensions are swapped relative to the canvas.
+        const isVertical = videoRotation === 90 || videoRotation === 270;
+        if (exportOrientation === 'landscape') {
+          if (isVertical) {
+             // Portrait video in landscape canvas (pillarbox)
+             const scale = canvas.height / v.videoWidth;
+             ctx.drawImage(v, - (v.videoWidth * scale) / 2, -canvas.height / 2, v.videoWidth * scale, canvas.height);
+          } else {
+             ctx.drawImage(v, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+          }
+        } else {
+          // Portrait Canvas
+          if (isVertical) {
+             // Landscape video rotated to fill Portrait canvas
+             ctx.drawImage(v, -canvas.height / 2, -canvas.width / 2, canvas.height, canvas.width);
+          } else {
+             // Landscape video in Portrait canvas (letterbox)
+             const scale = canvas.width / v.videoWidth;
+             ctx.drawImage(v, -canvas.width / 2, - (v.videoHeight * scale) / 2, canvas.width, v.videoHeight * scale);
+          }
+        }
+        ctx.restore();
+
+        // Draw Cameo if enabled
+        if (cameoConfig.enabled && streamRef.current) {
+          const video = document.createElement('video');
+          video.srcObject = streamRef.current;
+          video.play();
+          
+          const camSize = canvas.width * (cameoConfig.size / 100);
+          const camX = canvas.width * (cameoConfig.x / 100) - camSize/2;
+          const camY = canvas.height * (cameoConfig.y / 100) - camSize/2;
+
+          ctx.save();
+          ctx.translate(camX + camSize/2, camY + camSize/2);
+          ctx.rotate((cameoConfig.rotation * Math.PI) / 180);
+          // In portrait, rotate cameo to face "up" (+180 deg) as requested
+          if (exportOrientation === 'portrait') ctx.rotate(Math.PI);
+          
+          ctx.beginPath();
+          ctx.arc(0, 0, camSize/2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(video, -camSize/2, -camSize/2, camSize, camSize);
+          ctx.restore();
+        }
+
+        requestAnimationFrame(drawFrame);
+      };
+
+      drawFrame();
+      await new Promise(r => {
+        const check = setInterval(() => {
+          if (v.currentTime >= clip.out) { clearInterval(check); v.pause(); r(); }
+        }, 50);
+      });
+    }
+
+    mr.stop();
   };
 
-  const handleSaveTitle = async () => {
-    try { await renameRecording(rec.id, title); onRename(rec.id, title); setEditingTitle(false); }
-    catch { alert('Failed to rename'); }
+  const fmt = (s) => {
+    if (!s || isNaN(s)) return '00:00';
+    const m = Math.floor(s / 60);
+    const ss = Math.floor(s % 60);
+    return `${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
   };
-
-  const handleDelete = async () => {
-    if (!confirm('Permanently delete this recording?')) return;
-    try { await deleteRecording(rec.id); onDelete(rec.id); onClose(); }
-    catch { alert('Failed to delete'); }
-  };
-
-  const trimWidth = `${getPct(outPoint) - getPct(inPoint)}%`;
-  const trimLeft = `${getPct(inPoint)}%`;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0', height: '100%', background: 'var(--bg-main)' }}>
-      {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-panel)' }}>
-        <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}>
-          <ChevronLeft size={16} /> Back
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
+      {/* Tight Top Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 20px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-panel)' }}>
+        <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}>
+          <ChevronLeft size={14} /> EXIT
         </button>
         <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-        {editingTitle ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-            <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
-              style={{ flex: 1, padding: '6px 10px', fontSize: '14px', fontWeight: '700', borderRadius: '8px', border: '1px solid var(--brand-primary)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', outline: 'none' }} />
-            <button onClick={handleSaveTitle} style={{ background: 'var(--brand-primary)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14} /></button>
-            <button onClick={() => { setTitle(rec.title); setEditingTitle(false); }} style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={14} /></button>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '-0.2px' }}>{title}</span>
+          <div style={{ display: 'flex', background: 'var(--bg-panel-muted)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+            <button onClick={() => setExportOrientation('landscape')} 
+              style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: exportOrientation === 'landscape' ? 'var(--brand-primary)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: '9px', fontWeight: '900' }}>16:9</button>
+            <button onClick={() => setExportOrientation('portrait')} 
+              style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: exportOrientation === 'portrait' ? 'var(--brand-primary)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: '9px', fontWeight: '900' }}>9:16</button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-            <span style={{ fontSize: '15px', fontWeight: '800' }}>{title}</span>
-            <button onClick={() => setEditingTitle(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}><Pencil size={13} /></button>
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-          <button onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #ff4d4d', background: 'transparent', color: '#ff4d4d', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
-            <Trash2 size={14} /> Delete
-          </button>
-          <button onClick={handleTrimExport} disabled={trimming}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: trimming ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: trimming ? 'var(--text-muted)' : '#fff', fontWeight: '700', fontSize: '12px', cursor: trimming ? 'default' : 'pointer' }}>
-            {trimming ? <Loader2 size={14} className="animate-spin" /> : <Scissors size={14} />}
-            {trimming ? 'Exporting…' : 'Trim & Export'}
-          </button>
         </div>
+        <button onClick={handleExport} disabled={trimming}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '6px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '800', fontSize: '11px', cursor: 'pointer' }}>
+          {trimming ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+          {trimming ? 'RENDERING…' : 'JOIN & EXPORT'}
+        </button>
       </div>
 
-      {/* Main editor area */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', flex: 1, overflow: 'hidden' }}>
-        {/* Video + timeline */}
-        <div style={{ display: 'flex', flexDirection: 'column', padding: '24px', gap: '20px', overflowY: 'auto' }}>
-          {/* Video player */}
-          <div style={{ borderRadius: '16px', overflow: 'hidden', background: '#000', aspectRatio: '16/9', position: 'relative' }}>
-            <video ref={videoRef} src={rec.video_url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
-
-          {/* Playback controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => { videoRef.current.currentTime = inPoint; }} title="Go to In Point"
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}><SkipBack size={18} /></button>
-            <button onClick={togglePlay}
-              style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--brand-primary)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {playing ? <Pause size={18} fill="#fff" /> : <Play size={18} fill="#fff" />}
-            </button>
-            <button onClick={() => { videoRef.current.currentTime = outPoint; }} title="Go to Out Point"
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}><SkipForward size={18} /></button>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '8px' }}>{fmt(currentTime)} / {fmt(duration)}</span>
-          </div>
-
-          {/* Timeline scrubber */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <span>Timeline</span>
-              <span>Selection: {fmt(inPoint)} → {fmt(outPoint)} ({fmt(outPoint - inPoint)})</span>
+      {/* Editor Content */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--bg-main)' }}>
+          
+          {/* Main Viewport */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', minHeight: '400px' }}>
+            <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', background: '#000', aspectRatio: exportOrientation === 'landscape' ? '16/9' : '9/16', maxHeight: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', border: '1px solid var(--border-color)' }}>
+              <video 
+                ref={videoRef} src={activeClip.rec.video_url} 
+                style={{ 
+                  width: '100%', height: '100%', objectFit: 'contain',
+                  transform: `rotate(${videoRotation}deg) ${ (videoRotation === 90 || videoRotation === 270) ? 'scale(1.778)' : '' }`,
+                  transition: 'transform 0.3s ease'
+                }}
+                onClick={togglePlay}
+              />
+              {cameoConfig.enabled && (
+                <div 
+                  style={{ 
+                    position: 'absolute', left: `${cameoConfig.x}%`, top: `${cameoConfig.y}%`, 
+                    width: `${cameoConfig.size}%`, aspectRatio: '1', borderRadius: '50%', background: 'var(--bg-panel-muted)', border: '1.5px solid var(--text-main)',
+                    transform: `translate(-50%, -50%) rotate(${cameoConfig.rotation}deg)`, cursor: 'move', overflow: 'hidden'
+                  }}
+                  onMouseDown={(e) => {
+                    const startX = e.clientX; const startY = e.clientY;
+                    const startPosX = cameoConfig.x; const startPosY = cameoConfig.y;
+                    const onMove = (em) => {
+                      const dx = ((em.clientX - startX) / e.currentTarget.parentElement.offsetWidth) * 100;
+                      const dy = ((em.clientY - startY) / e.currentTarget.parentElement.offsetHeight) * 100;
+                      setCameoConfig(prev => ({ ...prev, x: Math.max(0, Math.min(100, startPosX + dx)), y: Math.max(0, Math.min(100, startPosY + dy)) }));
+                    };
+                    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+                  }}
+                >
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-main)', fontSize: '9px' }}>CAM</div>
+                </div>
+              )}
             </div>
-            {/* Track */}
-            <div ref={timelineRef} onClick={handleTimelineClick}
-              style={{ position: 'relative', height: '52px', background: 'var(--bg-panel-muted)', borderRadius: '10px', border: '1px solid var(--border-color)', cursor: 'pointer', userSelect: 'none' }}>
+          </div>
 
-              {/* Selected range highlight */}
-              <div style={{ position: 'absolute', top: 0, bottom: 0, left: trimLeft, width: trimWidth, background: 'rgba(29,158,74,0.18)', borderLeft: '2px solid var(--brand-primary)', borderRight: '2px solid var(--brand-primary)' }} />
+          {/* Unified Timeline / Sequence Track */}
+          <div style={{ background: 'var(--bg-panel)', borderTop: '1px solid var(--border-color)', padding: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <button onClick={togglePlay} style={{ background: 'var(--brand-primary)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {playing ? <Pause size={16} fill="#fff" /> : <Play size={16} fill="#fff" />}
+                 </button>
+                 <button onClick={handleSplitClip} style={{ background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}>
+                   <Scissors size={12} style={{ marginRight: '6px' }} /> SPLIT
+                 </button>
+               </div>
+               <div style={{ fontSize: '11px', fontWeight: '900', color: 'var(--brand-primary)' }}>
+                 {fmt(getSequenceTime())} / {fmt(sequenceDuration)}
+               </div>
+            </div>
 
-              {/* Timecode ticks */}
-              {duration > 0 && Array.from({ length: Math.min(20, Math.floor(duration)) }, (_, i) => {
-                const t = (i / Math.min(20, Math.floor(duration))) * duration;
-                return (
-                  <div key={i} style={{ position: 'absolute', left: `${(t / duration) * 100}%`, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
-                    <div style={{ width: '1px', height: '8px', background: 'var(--border-color)', opacity: 0.6 }} />
-                    <span style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px', transform: 'translateX(-50%)', opacity: 0.6 }}>{fmt(t)}</span>
+            {/* The Joined Track */}
+            <div style={{ position: 'relative', height: '48px', background: 'var(--bg-panel-muted)', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden', cursor: 'crosshair' }}
+              onClick={(e) => {
+                 const rect = e.currentTarget.getBoundingClientRect();
+                 const targetSeqTime = ((e.clientX - rect.left) / rect.width) * sequenceDuration;
+                 let acc = 0;
+                 for (const c of clips) {
+                   const dur = c.out - c.in;
+                   if (targetSeqTime <= acc + dur) { setSelectedClipId(c.id); videoRef.current.currentTime = c.in + (targetSeqTime - acc); return; }
+                   acc += dur;
+                 }
+              }}
+            >
+               {clips.map((clip, i) => (
+                 <div key={clip.id} style={{ 
+                    position: 'absolute', top: 0, bottom: 0, 
+                    left: `${(clips.slice(0, i).reduce((acc, c) => acc + (c.out - c.in), 0) / sequenceDuration) * 100}%`,
+                    width: `${((clip.out - clip.in) / sequenceDuration) * 100}%`,
+                    background: selectedClipId === clip.id ? 'rgba(29,158,74,0.4)' : 'rgba(255,255,255,0.05)',
+                    borderRight: '1px solid var(--border-color)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '900', color: 'var(--text-muted)'
+                 }}>
+                   {i + 1}
+                 </div>
+               ))}
+               <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(getSequenceTime() / sequenceDuration) * 100}%`, width: '2px', background: 'var(--text-main)', zIndex: 10, boxShadow: '0 0 10px var(--text-main)' }} />
+            </div>
+
+            {/* Horizontal Clip Cards (Compact) */}
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginTop: '12px', paddingBottom: '4px' }}>
+              {clips.map((clip, idx) => (
+                <div key={clip.id} onClick={() => setSelectedClipId(clip.id)}
+                  style={{ 
+                    minWidth: '120px', padding: '8px', borderRadius: '8px', cursor: 'pointer',
+                    background: selectedClipId === clip.id ? 'var(--bg-panel-muted)' : 'var(--bg-panel)',
+                    border: `1px solid ${selectedClipId === clip.id ? 'var(--brand-primary)' : 'var(--border-color)'}`,
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ fontSize: '9px', fontWeight: '900', color: selectedClipId === clip.id ? 'var(--brand-primary)' : 'var(--text-muted)', marginBottom: '2px' }}>CLIP {idx + 1}</div>
+                  <div style={{ fontSize: '11px', fontWeight: '700' }}>{fmt(clip.out - clip.in)}</div>
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); handleMoveClip(clip.id, -1); }} disabled={idx === 0} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><ChevronLeft size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleMoveClip(clip.id, 1); }} disabled={idx === clips.length - 1} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><ChevronRight size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteClip(clip.id); }} style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: '#991b1b', cursor: 'pointer' }}><Trash2 size={12} /></button>
                   </div>
-                );
-              })}
-
-              {/* IN handle */}
-              <div onMouseDown={e => handleTimelineMouseDown(e, 'in')}
-                style={{ position: 'absolute', left: `${getPct(inPoint)}%`, top: 0, bottom: 0, width: '12px', marginLeft: '-6px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'ew-resize', zIndex: 3 }}>
-                <div style={{ width: '4px', height: '100%', background: 'var(--brand-primary)', borderRadius: '4px', boxShadow: '0 0 0 2px rgba(29,158,74,0.3)' }} />
-                <div style={{ position: 'absolute', bottom: '-18px', fontSize: '9px', fontWeight: '800', color: 'var(--brand-primary)', whiteSpace: 'nowrap' }}>IN</div>
-              </div>
-
-              {/* OUT handle */}
-              <div onMouseDown={e => handleTimelineMouseDown(e, 'out')}
-                style={{ position: 'absolute', left: `${getPct(outPoint)}%`, top: 0, bottom: 0, width: '12px', marginLeft: '-6px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'ew-resize', zIndex: 3 }}>
-                <div style={{ width: '4px', height: '100%', background: '#f59e0b', borderRadius: '4px', boxShadow: '0 0 0 2px rgba(245,158,11,0.3)' }} />
-                <div style={{ position: 'absolute', bottom: '-18px', fontSize: '9px', fontWeight: '800', color: '#f59e0b', whiteSpace: 'nowrap' }}>OUT</div>
-              </div>
-
-              {/* Playhead */}
-              <div onMouseDown={e => handleTimelineMouseDown(e, 'playhead')}
-                style={{ position: 'absolute', left: `${getPct(currentTime)}%`, top: 0, bottom: 0, width: '2px', background: '#fff', opacity: 0.9, marginLeft: '-1px', zIndex: 4, cursor: 'col-resize', boxShadow: '0 0 4px rgba(255,255,255,0.5)' }} />
+                </div>
+              ))}
             </div>
-          </div>
-
-          {/* In / Out number inputs */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            {[{ label: 'In Point', val: inPoint, color: 'var(--brand-primary)', set: (v) => setInPoint(Math.max(0, Math.min(v, outPoint - 0.5))) },
-              { label: 'Out Point', val: outPoint, color: '#f59e0b', set: (v) => setOutPoint(Math.max(inPoint + 0.5, Math.min(v, duration))) }].map(({ label, val, color, set }) => (
-              <div key={label} style={{ background: 'var(--bg-panel)', border: `1px solid ${color}22`, borderRadius: '10px', padding: '12px 16px' }}>
-                <div style={{ fontSize: '10px', fontWeight: '800', color, textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
-                <input type="number" step="0.1" min="0" max={duration} value={val.toFixed(2)}
-                  onChange={e => set(parseFloat(e.target.value))}
-                  style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '20px', fontWeight: '800', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{fmt(val)}</div>
-              </div>
-            ))}
           </div>
         </div>
 
-        {/* Right info panel */}
-        <div style={{ borderLeft: '1px solid var(--border-color)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', background: 'var(--bg-panel)', overflowY: 'auto' }}>
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '12px' }}>Recording Info</div>
-            {[
-              { label: 'Duration', value: fmt(duration) },
-              { label: 'Type', value: rec.media_type || 'RAW' },
-              { label: 'Date', value: new Date(rec.created_at).toLocaleDateString() },
-              { label: 'Time', value: new Date(rec.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</span>
-                <span style={{ fontSize: '12px', fontWeight: '700' }}>{value}</span>
-              </div>
-            ))}
-          </div>
+        {/* Sidebar Inspector */}
+        <div style={{ background: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <section>
+            <h5 style={{ fontSize: '10px', fontWeight: '900', color: 'var(--text-muted)', marginBottom: '12px' }}>CLIP INSPECTOR</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+               <div>
+                 <label style={{ fontSize: '8px', fontWeight: '900', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>START</label>
+                 <input type="number" step="0.1" value={activeClip.in.toFixed(1)} 
+                   onChange={e => setClips(prev => prev.map(c => c.id === selectedClipId ? { ...c, in: parseFloat(e.target.value) } : c))}
+                   style={{ width: '100%', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '6px', borderRadius: '4px', fontSize: '11px' }} />
+               </div>
+               <div>
+                 <label style={{ fontSize: '8px', fontWeight: '900', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>END</label>
+                 <input type="number" step="0.1" value={activeClip.out.toFixed(1)} 
+                   onChange={e => setClips(prev => prev.map(c => c.id === selectedClipId ? { ...c, out: parseFloat(e.target.value) } : c))}
+                   style={{ width: '100%', background: 'var(--bg-panel-muted)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '6px', borderRadius: '4px', fontSize: '11px' }} />
+               </div>
+            </div>
+          </section>
 
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '12px' }}>Export Selection</div>
-            <div style={{ background: 'var(--bg-panel-muted)', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Start</span><span style={{ fontWeight: '700', color: 'var(--brand-primary)' }}>{fmt(inPoint)}</span>
+          <section>
+            <h5 style={{ fontSize: '10px', fontWeight: '900', color: 'var(--text-muted)', marginBottom: '12px' }}>CAMEO & OVERLAY</h5>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                 <span style={{ fontSize: '11px' }}>Enabled</span>
+                 <button onClick={() => setCameoConfig(prev => ({ ...prev, enabled: !prev.enabled }))} 
+                   style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', background: cameoConfig.enabled ? 'var(--brand-primary)' : 'var(--bg-panel-muted)', color: '#fff', fontSize: '9px', fontWeight: '900', cursor: 'pointer' }}>{cameoConfig.enabled ? 'ON' : 'OFF'}</button>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>End</span><span style={{ fontWeight: '700', color: '#f59e0b' }}>{fmt(outPoint)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Length</span><span style={{ fontWeight: '700' }}>{fmt(outPoint - inPoint)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}><span>Size</span><span>{cameoConfig.size}%</span></div>
+                 <input type="range" min="10" max="40" value={cameoConfig.size} onChange={e => setCameoConfig(prev => ({ ...prev, size: parseInt(e.target.value) }))} style={{ width: '100%' }} />
               </div>
             </div>
-            <button onClick={handleTrimExport} disabled={trimming}
-              style={{ marginTop: '12px', width: '100%', padding: '12px', borderRadius: '10px', border: 'none', background: trimming ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: trimming ? 'var(--text-muted)' : '#fff', fontWeight: '800', fontSize: '13px', cursor: trimming ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              {trimming ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              {trimming ? 'Exporting…' : 'Download Trim'}
-            </button>
+          </section>
+
+          <section>
+             <h5 style={{ fontSize: '10px', fontWeight: '900', color: 'var(--text-muted)', marginBottom: '12px' }}>PROJECT ORIENTATION</h5>
+             <div style={{ display: 'flex', gap: '8px' }}>
+                {[0, 90, 180, 270].map(rot => (
+                  <button key={rot} onClick={() => setVideoRotation(rot)}
+                    style={{ flex: 1, padding: '6px', fontSize: '9px', fontWeight: '900', borderRadius: '4px', border: 'none', background: videoRotation === rot ? 'var(--brand-primary)' : 'var(--bg-panel-muted)', color: 'var(--text-main)', cursor: 'pointer' }}>
+                    {rot}°
+                  </button>
+                ))}
+             </div>
+          </section>
+
+          <div style={{ marginTop: 'auto', padding: '16px', background: 'var(--bg-panel-muted)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+             <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '900', marginBottom: '2px' }}>SEQUENCE TOTAL</div>
+             <div style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '-0.5px' }}>{fmt(sequenceDuration)}</div>
           </div>
         </div>
       </div>

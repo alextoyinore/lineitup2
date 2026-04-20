@@ -100,10 +100,10 @@ export const renameRecording = async (id, title) => {
 
 export const uploadRecording = async (blob, title, duration, mediaType = 'RAW') => {
   const formData = new FormData();
+  formData.append('media_type', mediaType);
   formData.append('video', blob, 'recording.webm');
   formData.append('title', title);
   formData.append('duration', duration);
-  formData.append('media_type', mediaType);
 
   const res = await fetch('/api/recordings', {
     method: 'POST',

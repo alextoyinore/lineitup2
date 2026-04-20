@@ -61,9 +61,15 @@ export const TacticsProvider = ({ children }) => {
   const [awayTeamId, setAwayTeamId] = useState(null);
   const [currentTeamId, setCurrentTeamId] = useState(null);
   const [ball, setBall] = useState({ relativeX: 50, relativeY: 50 });
+  const [matchHalf, setMatchHalf] = useState(1);
 
   // --- Selection State ---
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
+
+  // Reset ball on half switch
+  useEffect(() => {
+    setBall({ relativeX: 50, relativeY: 50 });
+  }, [matchHalf]);
 
   // --- Tools State ---
   const [currentTool, setCurrentTool] = useState('pointer');
@@ -71,14 +77,14 @@ export const TacticsProvider = ({ children }) => {
 
   // --- Methods ---
   const resetPitch = useCallback(() => {
-    let pHome = generatePlayers(homeFormation, true, uiConfig.showSubsArea);
-    let pAway = isDualTeamMode ? generatePlayers(awayFormation, false, uiConfig.showSubsArea) : [];
+    let pHome = generatePlayers(homeFormation, true, uiConfig.showSubsArea, matchHalf === 2);
+    let pAway = isDualTeamMode ? generatePlayers(awayFormation, false, uiConfig.showSubsArea, matchHalf === 2) : [];
     setPlayers([...pHome, ...pAway]);
     setDrawings([]);
     setBall({ relativeX: 50, relativeY: 50 });
     setHomeTeamId(null);
     setAwayTeamId(null);
-  }, [homeFormation, awayFormation, isDualTeamMode, uiConfig.showSubsArea]);
+  }, [homeFormation, awayFormation, isDualTeamMode, uiConfig.showSubsArea, matchHalf]);
 
   // React to dual team mode toggle
   useEffect(() => {
@@ -87,7 +93,7 @@ export const TacticsProvider = ({ children }) => {
       const homePlayers = prev.filter(p => p.team === 'home');
       if (isDualTeamMode) {
         // Add away players at their default formation positions
-        const awayPlayers = generatePlayers(awayFormation, false, uiConfig.showSubsArea);
+        const awayPlayers = generatePlayers(awayFormation, false, uiConfig.showSubsArea, matchHalf === 2);
         return [...homePlayers, ...awayPlayers];
       } else {
         // Strip away players
@@ -106,9 +112,9 @@ export const TacticsProvider = ({ children }) => {
       setPlayers(prev => {
         const hasHomeSubs = prev.some(p => p.team === 'home' && p.relativeY > 90);
         if (!hasHomeSubs) {
-          const homeSubs = generatePlayers(homeFormation, true, true).filter(p => p.relativeY > 90);
+          const homeSubs = generatePlayers(homeFormation, true, true, matchHalf === 2).filter(p => p.relativeY > 90);
           const awaySubs = isDualTeamMode 
-            ? generatePlayers(awayFormation, false, true).filter(p => p.relativeY > 90)
+            ? generatePlayers(awayFormation, false, true, matchHalf === 2).filter(p => p.relativeY > 90)
             : [];
           return [...prev, ...homeSubs, ...awaySubs];
         }
@@ -122,7 +128,7 @@ export const TacticsProvider = ({ children }) => {
     setPlayers(prev => {
       const homePitchPlayers = prev.filter(p => p.team === 'home' && p.relativeY <= 90);
       const otherPlayers = prev.filter(p => !(p.team === 'home' && p.relativeY <= 90));
-      const newFormationPos = generatePlayers(homeFormation, true, false);
+      const newFormationPos = generatePlayers(homeFormation, true, false, matchHalf === 2);
       
       const updatedHome = homePitchPlayers.map((p, i) => {
         if (newFormationPos[i]) {
@@ -132,7 +138,7 @@ export const TacticsProvider = ({ children }) => {
       });
       return [...otherPlayers, ...updatedHome];
     });
-  }, [homeFormation]); // eslint-disable-line
+  }, [homeFormation, matchHalf]); // eslint-disable-line
 
   // React to away formation change
   useEffect(() => {
@@ -140,7 +146,7 @@ export const TacticsProvider = ({ children }) => {
     setPlayers(prev => {
       const awayPitchPlayers = prev.filter(p => p.team === 'away' && p.relativeY <= 90);
       const otherPlayers = prev.filter(p => !(p.team === 'away' && p.relativeY <= 90));
-      const newFormationPos = generatePlayers(awayFormation, false, false);
+      const newFormationPos = generatePlayers(awayFormation, false, false, matchHalf === 2);
       
       const updatedAway = awayPitchPlayers.map((p, i) => {
         if (newFormationPos[i]) {
@@ -150,7 +156,7 @@ export const TacticsProvider = ({ children }) => {
       });
       return [...otherPlayers, ...updatedAway];
     });
-  }, [awayFormation, isDualTeamMode]); // eslint-disable-line
+  }, [awayFormation, isDualTeamMode, matchHalf]); // eslint-disable-line
 
   const updatePlayer = useCallback((id, updates) => {
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
@@ -256,6 +262,7 @@ export const TacticsProvider = ({ children }) => {
     currentTeamId, setCurrentTeamId,
     selectedPlayerIds, setSelectedPlayerIds,
     ball, setBall,
+    matchHalf, setMatchHalf,
     movePlayers, togglePlayerSelection, clearSelection
   };
 
