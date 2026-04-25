@@ -26,7 +26,8 @@ export const TacticsProvider = ({ children }) => {
       textHasShadow: true,
       showSubsArea: false,
       zoneHasFill: true,
-      showBall: false
+      showBall: false,
+      is3D: false
     };
     if (saved) {
       try {

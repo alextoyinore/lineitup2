@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import '../App.css';
 
 import Pitch from './Pitch';
+import Pitch3D from './Pitch3D';
 import ControlsPanel from './ControlsPanel';
 import AuthPage from './AuthPage';
 import { generatePlayers, formationKeys } from '../utils/formations';
@@ -306,25 +307,34 @@ function TacticsBoard() {
           />
         </div>
         
-        <div className="pitch-container-wrapper" style={{ background: '#eef2f5' }}>
-          <Pitch 
-            ref={pitchRef} 
-            players={players} 
-            updatePlayer={updatePlayer}
-            isRecording={isRecording}
-            teamColors={teamColors}
-            ui={uiConfig}
-            currentTool={currentTool}
-            inkColor={inkColor}
-            drawings={drawings}
-            setDrawings={setDrawings}
-            cameraStream={cameraStream}
-            selectedPlayerIds={selectedPlayerIds}
-            togglePlayerSelection={togglePlayerSelection}
-            clearSelection={clearSelection}
-            ball={ball}
-            updateBall={setBall}
-          />
+        <div className="pitch-container-wrapper" style={{ background: uiConfig.is3D ? '#0f172a' : '#eef2f5', position: 'relative' }}>
+          {uiConfig.is3D ? (
+            <Pitch3D
+              players={players}
+              teamColors={teamColors}
+              uiConfig={uiConfig}
+              selectedPlayerIds={selectedPlayerIds}
+            />
+          ) : (
+            <Pitch 
+              ref={pitchRef} 
+              players={players} 
+              updatePlayer={updatePlayer}
+              isRecording={isRecording}
+              teamColors={teamColors}
+              ui={uiConfig}
+              currentTool={currentTool}
+              inkColor={inkColor}
+              drawings={drawings}
+              setDrawings={setDrawings}
+              cameraStream={cameraStream}
+              selectedPlayerIds={selectedPlayerIds}
+              togglePlayerSelection={togglePlayerSelection}
+              clearSelection={clearSelection}
+              ball={ball}
+              updateBall={setBall}
+            />
+          )}
         </div>
 
         {/* Mobile Floating Toggles */}

@@ -221,6 +221,20 @@ const ControlsPanel = ({
                   BALL
                 </button>
                 <button 
+                  onClick={() => updateUiConfig('is3D', !uiConfig.is3D)} 
+                  title={uiConfig.is3D ? 'Switch to 2D View' : 'Switch to 3D View'}
+                  style={{ 
+                    height: '28px', padding: '0 10px', borderRadius: '8px', border: '1px solid',
+                    borderColor: uiConfig.is3D ? '#7c3aed' : 'var(--border-color)',
+                    background: uiConfig.is3D ? 'rgba(124,58,237,0.12)' : 'transparent',
+                    color: uiConfig.is3D ? '#a78bfa' : 'var(--text-muted)',
+                    cursor: 'pointer', fontSize: '9px', fontWeight: '800',
+                    display: 'flex', alignItems: 'center', gap: '3px'
+                  }}
+                >
+                  {uiConfig.is3D ? '2D' : '3D'}
+                </button>
+                <button 
                   onClick={() => setDrawings([])} 
                   title="Clear All" 
                   style={{ 

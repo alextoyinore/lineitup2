@@ -22,7 +22,7 @@ const PlayerNode = ({ player, width, height, isRecording, updatePlayer, teamColo
       groupRef.current.to({
         x: absoluteX,
         y: absoluteY,
-        duration: 1.2,
+        duration: 0.4,
         easing: Konva.Easings.EaseInOut
       });
     }
@@ -213,7 +213,7 @@ const BallNode = ({ ball, width, height, ui, updateBall, currentTool, isRecordin
       groupRef.current.to({
         x: absoluteX,
         y: absoluteY,
-        duration: 1.2,
+        duration: 0.4,
         easing: Konva.Easings.EaseInOut
       });
     }
