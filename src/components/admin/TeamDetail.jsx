@@ -16,6 +16,8 @@ const TeamDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState(null);
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteContent, setPasteContent] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,6 +49,29 @@ const TeamDetail = () => {
       console.error(err);
       setTeam(prev => ({ ...prev, default_formation: oldFormation }));
       alert('Failed to update formation on server. Check console for details.'); 
+    }
+  };
+
+  const handleJsonUpload = async (data) => {
+    try {
+      if (Array.isArray(data)) {
+        // Inject team_id automatically
+        data = data.map(player => ({ ...player, team_id: id }));
+        
+        await fetch('/api/global/players/batch', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, 
+          body: JSON.stringify(data) 
+        });
+        loadData();
+        alert('Batch upload successful!');
+        setShowPasteModal(false);
+        setPasteContent('');
+      } else {
+        alert('Invalid JSON format. Expected an array.');
+      }
+    } catch (err) {
+      alert('Error parsing JSON or uploading data');
     }
   };
 
@@ -170,14 +195,72 @@ const TeamDetail = () => {
             </div>
           </div>
         </div>
-        <button onClick={() => setShowAdd(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: showAdd ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: showAdd ? 'var(--text-main)' : '#fff', border: 'none', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
-          {showAdd ? <X size={15} /> : <Plus size={15} />} {showAdd ? 'Cancel' : 'Add Player'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setShowPasteModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+            Paste JSON
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+            Upload JSON File
+            <input type="file" accept=".json" onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = async (event) => {
+                try {
+                  const data = JSON.parse(event.target.result);
+                  await handleJsonUpload(data);
+                } catch (err) {
+                  alert('Invalid JSON file');
+                }
+              };
+              reader.readAsText(file);
+            }} style={{ display: 'none' }} />
+          </label>
+          <button onClick={() => setShowAdd(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: showAdd ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: showAdd ? 'var(--text-main)' : '#fff', border: 'none', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+            {showAdd ? <X size={15} /> : <Plus size={15} />} {showAdd ? 'Cancel' : 'Add Player'}
+          </button>
+        </div>
       </header>
 
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {showPasteModal && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', width: '500px', maxWidth: '90%', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <h2 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Paste Players JSON</h2>
+                    <button onClick={() => {
+                      navigator.clipboard.writeText('[\n  {\n    "name": "Erling Haaland",\n    "number": 9,\n    "position": "ST",\n    "grade": 91,\n    "is_starting": 1\n  }\n]');
+                      alert('Template copied to clipboard! (team_id is automatically assigned)');
+                    }} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '10px', fontWeight: '700', cursor: 'pointer' }}>Copy Template</button>
+                  </div>
+                  <button onClick={() => setShowPasteModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+                </div>
+                <textarea 
+                  placeholder="[\n  {\n    &quot;name&quot;: &quot;Player Name&quot;,\n    &quot;number&quot;: 10,\n    &quot;position&quot;: &quot;CAM&quot;,\n    &quot;grade&quot;: 85,\n    &quot;is_starting&quot;: 1\n  }\n]"
+                  value={pasteContent}
+                  onChange={e => setPasteContent(e.target.value)}
+                  style={{ width: '100%', height: '200px', padding: '12px', borderRadius: '8px', background: 'var(--bg-main)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  <button onClick={() => setShowPasteModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+                  <button disabled={!pasteContent.trim()} onClick={() => {
+                    try {
+                      const data = JSON.parse(pasteContent);
+                      handleJsonUpload(data);
+                    } catch {
+                      alert('Invalid JSON syntax');
+                    }
+                  }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '12px', cursor: !pasteContent.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Upload
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {showAdd && (
             <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
               <form onSubmit={handleAddPlayer} className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(40px, auto) 2fr 1fr 1fr 1fr 1fr 100px', gap: '16px', alignItems: 'end' }}>

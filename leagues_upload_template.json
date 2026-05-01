@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Premier League",
+    "country": "England",
+    "logo_url": "https://example.com/pl-logo.png"
+  },
+  {
+    "name": "La Liga",
+    "country": "Spain",
+    "logo_url": ""
+  }
+]

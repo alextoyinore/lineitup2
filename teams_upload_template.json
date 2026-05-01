@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Arsenal",
+    "league_id": "REPLACE_WITH_LEAGUE_UUID",
+    "logo_url": "https://example.com/arsenal.png",
+    "stadium_name": "Emirates Stadium",
+    "city": "London",
+    "manager_name": "Mikel Arteta",
+    "foundation_year": "1886",
+    "stadium_image_url": "https://example.com/emirates.png",
+    "location_map_url": "https://example.com/map.png",
+    "default_formation": "4-3-3",
+    "primary_color": "#EF0107",
+    "secondary_color": "#063672"
+  },
+  {
+    "name": "Manchester City",
+    "league_id": "REPLACE_WITH_LEAGUE_UUID",
+    "city": "Manchester",
+    "stadium_name": "Etihad Stadium"
+  }
+]

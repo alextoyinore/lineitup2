@@ -178,6 +178,22 @@ app.get('/api/leagues', (req, res) => {
   }
 });
 
+app.post('/api/leagues/batch', authenticateToken, isAdmin, (req, res) => {
+  try {
+    const leagues = req.body;
+    const insert = db.prepare('INSERT INTO leagues (id, name, logo_url, country) VALUES (?, ?, ?, ?)');
+    const insertMany = db.transaction((leagues) => {
+      for (const league of leagues) {
+        insert.run(uuidv4(), league.name, league.logo_url || '', league.country || '');
+      }
+    });
+    insertMany(leagues);
+    res.json({ success: true, count: leagues.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/leagues', authenticateToken, isAdmin, (req, res) => {
   try {
     const { name, logo_url, country } = req.body;
@@ -213,6 +229,22 @@ app.get('/api/global/teams', (req, res) => {
   try {
     const teams = db.prepare('SELECT * FROM global_teams ORDER BY name ASC').all();
     res.json(teams);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/global/teams/batch', authenticateToken, isAdmin, (req, res) => {
+  try {
+    const teams = req.body;
+    const insert = db.prepare(`INSERT INTO global_teams (id, name, league_id, logo_url, stadium_name, city, manager_name, foundation_year, stadium_image_url, location_map_url, default_formation, primary_color, secondary_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const insertMany = db.transaction((teams) => {
+      for (const team of teams) {
+        insert.run(uuidv4(), team.name, team.league_id, team.logo_url || '', team.stadium_name || '', team.city || '', team.manager_name || '', team.foundation_year || '', team.stadium_image_url || '', team.location_map_url || '', team.default_formation || '4-3-3', team.primary_color || '#E63946', team.secondary_color || '#1D3557');
+      }
+    });
+    insertMany(teams);
+    res.json({ success: true, count: teams.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -265,6 +297,44 @@ app.get('/api/global/players/:id', (req, res) => {
     const player = db.prepare('SELECT * FROM global_players WHERE id = ?').get(req.params.id);
     if (!player) return res.status(404).json({ error: 'Player not found' });
     res.json(player);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/global/players/batch', authenticateToken, isAdmin, (req, res) => {
+  try {
+    const players = req.body;
+    if (!players || players.length === 0) return res.json({ success: true, count: 0 });
+
+    const teamId = players[0].team_id;
+    const existingPlayers = db.prepare('SELECT id, name FROM global_players WHERE team_id = ?').all(teamId);
+    
+    const existingMap = {};
+    for (const ep of existingPlayers) {
+      existingMap[ep.name.toLowerCase().trim()] = ep.id;
+    }
+
+    const insert = db.prepare('INSERT INTO global_players (id, team_id, name, number, position, avatar_url, grade, is_starting) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const update = db.prepare('UPDATE global_players SET number=?, position=?, avatar_url=?, grade=?, is_starting=? WHERE id=?');
+
+    const processBatch = db.transaction((players) => {
+      for (const p of players) {
+        const key = p.name.toLowerCase().trim();
+        const existingId = existingMap[key];
+
+        if (existingId) {
+          // Update if name matches
+          update.run(p.number || '', p.position || '', p.avatar_url || '', Number(p.grade || 0), Number(p.is_starting || 0), existingId);
+        } else {
+          // Insert new
+          insert.run(uuidv4(), p.team_id, p.name, p.number || '', p.position || '', p.avatar_url || '', Number(p.grade || 0), Number(p.is_starting || 0));
+        }
+      }
+    });
+
+    processBatch(players);
+    res.json({ success: true, count: players.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

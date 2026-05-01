@@ -11,11 +11,33 @@ const LeaguesView = () => {
   const [uploading, setUploading] = useState(false);
   const [editingLeague, setEditingLeague] = useState(null);
 
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteContent, setPasteContent] = useState('');
+
   useEffect(() => { loadLeagues(); }, []);
 
   const loadLeagues = async () => {
     try { setLeagues(await fetchLeagues()); setLoading(false); }
     catch (err) { console.error(err); }
+  };
+
+  const handleJsonUpload = async (data) => {
+    try {
+      if (Array.isArray(data)) {
+        setUploading(true);
+        await fetch('/api/leagues/batch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify(data) });
+        loadLeagues();
+        alert('Batch upload successful!');
+        setShowPasteModal(false);
+        setPasteContent('');
+      } else {
+        alert('Invalid JSON format. Expected an array.');
+      }
+    } catch (err) {
+      alert('Error parsing JSON or uploading data');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleFileUpload = async (e, isEdit = false) => {
@@ -76,11 +98,70 @@ const LeaguesView = () => {
           <h1 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>League Management</h1>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Manage official competition structures and regional associations.</p>
         </div>
-        <button onClick={() => setShowAdd(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: showAdd ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: showAdd ? 'var(--text-main)' : '#fff', border: 'none', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
-          {showAdd ? <X size={15} /> : <Plus size={15} />} {showAdd ? 'Cancel' : 'Add League'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setShowPasteModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+            Paste JSON
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+            <Loader2 size={15} style={{ display: uploading ? 'block' : 'none' }} className="animate-spin" />
+            <span style={{ display: uploading ? 'none' : 'block' }}>Upload JSON File</span>
+            <input type="file" accept=".json" onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = async (event) => {
+                try {
+                  const data = JSON.parse(event.target.result);
+                  await handleJsonUpload(data);
+                } catch (err) {
+                  alert('Invalid JSON file');
+                }
+              };
+              reader.readAsText(file);
+            }} style={{ display: 'none' }} />
+          </label>
+          <button onClick={() => setShowAdd(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: showAdd ? 'var(--bg-panel-muted)' : 'var(--brand-primary)', color: showAdd ? 'var(--text-main)' : '#fff', border: 'none', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+            {showAdd ? <X size={15} /> : <Plus size={15} />} {showAdd ? 'Cancel' : 'Add League'}
+          </button>
+        </div>
       </header>
+
+      {showPasteModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', width: '500px', maxWidth: '90%', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <h2 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Paste Leagues JSON</h2>
+                <button onClick={() => {
+                  navigator.clipboard.writeText('[\n  {\n    "name": "Premier League",\n    "country": "England",\n    "logo_url": "https://example.com/pl-logo.png"\n  }\n]');
+                  alert('Template copied to clipboard!');
+                }} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-panel-muted)', color: 'var(--text-main)', fontSize: '10px', fontWeight: '700', cursor: 'pointer' }}>Copy Template</button>
+              </div>
+              <button onClick={() => setShowPasteModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <textarea 
+              placeholder="[\n  {\n    &quot;name&quot;: &quot;League Name&quot;,\n    &quot;country&quot;: &quot;Country&quot;\n  }\n]"
+              value={pasteContent}
+              onChange={e => setPasteContent(e.target.value)}
+              style={{ width: '100%', height: '200px', padding: '12px', borderRadius: '8px', background: 'var(--bg-main)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontSize: '12px', fontFamily: 'monospace', resize: 'vertical' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setShowPasteModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+              <button disabled={uploading || !pasteContent.trim()} onClick={() => {
+                try {
+                  const data = JSON.parse(pasteContent);
+                  handleJsonUpload(data);
+                } catch {
+                  alert('Invalid JSON syntax');
+                }
+              }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--brand-primary)', color: '#fff', fontWeight: '700', fontSize: '12px', cursor: uploading || !pasteContent.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {uploading && <Loader2 size={14} className="animate-spin" />} Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div style={{ background: 'var(--bg-panel)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>

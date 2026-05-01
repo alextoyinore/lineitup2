@@ -143,9 +143,21 @@ export const deleteLeague = async (id) => {
   return res.json();
 };
 
+export const batchUploadLeagues = async (leagues) => {
+  const res = await fetch('/api/leagues/batch', { method: 'POST', headers: getHeaders(), body: JSON.stringify(leagues) });
+  if (!res.ok) throw new Error('Failed to batch upload leagues');
+  return res.json();
+};
+
 export const saveGlobalTeam = async (data) => {
   const res = await fetch('/api/global/teams', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   if (!res.ok) throw new Error('Failed to save team');
+  return res.json();
+};
+
+export const batchUploadGlobalTeams = async (teams) => {
+  const res = await fetch('/api/global/teams/batch', { method: 'POST', headers: getHeaders(), body: JSON.stringify(teams) });
+  if (!res.ok) throw new Error('Failed to batch upload teams');
   return res.json();
 };
 
